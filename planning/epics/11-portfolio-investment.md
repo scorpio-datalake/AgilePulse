@@ -37,13 +37,13 @@ story 0.1
 
 research this and create or change our epics based on this. 
 
+git clone https://github.com/taigaio/taiga-front/
+
 
 look at the /home/vihang/work/projects/pm_tools/taiga-front frontend and see what we are missing. We are a clean room but we I do feel that we are missing tooling and navigation. 
 
 
 Lets figure out how we can create the same stuff. 
-
-
 
 
 
