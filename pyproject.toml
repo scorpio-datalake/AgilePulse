@@ -1,0 +1,36 @@
+[project]
+name = "scaled-engine"
+version = "0.1.0"
+description = "AgilePulse: The AI-powered Scaled Agile framework for PI planning, value streams, and cross-company team alignment."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "sqlalchemy>=2.0",
+    "itsdangerous>=2.2",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.12",
+    "uvicorn>=0.32",
+]
+
+[project.scripts]
+scaled-engine = "app.__main__:main"
+
+[dependency-groups]
+dev = [
+    "fpdf2>=2.8",
+    "httpx>=0.27",
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["templates/*.html", "static/*", "static/logos/*"]

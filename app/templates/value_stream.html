@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Value stream</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ stream.name }}</h1>
+    {% if not groups %}
+      <form method="post" action="/delivery-groups">
+        <input type="hidden" name="value_stream_id" value="{{ stream.id }}">
+        <label>Name <input name="name"></label>
+        <button class="primary" type="submit">Add delivery group</button>
+      </form>
+    {% endif %}
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/value-streams/{{ stream.id }}">
+    <label>Name <input name="name" value="{{ stream.name }}"></label>
+    <button type="submit">Save value stream</button>
+  </form>
+  <h2>Delivery groups</h2>
+  {% if groups %}
+    <ul>
+      {% for group in groups %}
+        <li><a href="/delivery-groups/{{ group.id }}">{{ group.name }}</a></li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/delivery-groups">
+      <input type="hidden" name="value_stream_id" value="{{ stream.id }}">
+      <label>Name <input name="name"></label>
+      <button type="submit">Add delivery group</button>
+    </form>
+  {% endif %}
+  <h2>Goals</h2>
+  {% if goals is defined and goals %}
+    <ul>
+      {% for goal in goals %}
+        <li><a href="/goals/{{ goal.id }}">{{ goal.name }}</a></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <form method="post" action="/goals">
+    <input type="hidden" name="value_stream_id" value="{{ stream.id }}">
+    <label>Name <input name="name"></label>
+    <button type="submit">Add goal</button>
+  </form>
+  <h2>Stream owner</h2>
+  <table class="seats">
+    <thead>
+      <tr><th>Person</th><th>Seat</th></tr>
+    </thead>
+    <tbody>
+      {% for assignment in assignments %}
+        <tr>
+          <td>{{ assignment.name }}</td>
+          <td>{{ assignment.label }}: {{ assignment.name }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

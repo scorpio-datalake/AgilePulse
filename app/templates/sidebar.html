@@ -1,0 +1,45 @@
+<nav class="sidebar" aria-label="Sidebar">
+  <p class="brand">AgilePulse</p>
+  {% include "theme_toggle.html" %}
+  <div class="nav-places">
+    <a href="/"{% if nav_current == "home" %} aria-current="page"{% endif %}>Home</a>
+    <a href="/people"{% if nav_current == "people" %} aria-current="page"{% endif %}>People</a>
+  </div>
+  {% if nav_tree %}
+    <p class="nav-kind">Portfolios</p>
+    <ul>
+      {% for portfolio in nav_tree %}
+        <li>
+          <a href="/portfolios/{{ portfolio.id }}"{% if nav_current == "portfolio" and nav_current_id == portfolio.id %} aria-current="page"{% endif %}>{{ portfolio.name }}</a>
+          {% if portfolio.streams %}
+            <ul>
+              {% for stream in portfolio.streams %}
+                <li>
+                  <a href="/value-streams/{{ stream.id }}"{% if nav_current == "value_stream" and nav_current_id == stream.id %} aria-current="page"{% endif %}>{{ stream.name }}</a>
+                  {% if stream.groups %}
+                    <ul>
+                      {% for group in stream.groups %}
+                        <li>
+                          <a href="/delivery-groups/{{ group.id }}"{% if nav_current == "delivery_group" and nav_current_id == group.id %} aria-current="page"{% endif %}>{{ group.name }}</a>
+                          {% if group.teams %}
+                            <ul>
+                              {% for team in group.teams %}
+                                <li>
+                                  <a href="/teams/{{ team.id }}"{% if nav_current == "team" and nav_current_id == team.id %} aria-current="page"{% endif %}>{{ team.name }}</a>
+                                </li>
+                              {% endfor %}
+                            </ul>
+                          {% endif %}
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</nav>

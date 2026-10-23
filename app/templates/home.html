@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    {% if landing == "admin" %}
+      <h1>Portfolios</h1>
+    {% elif landing == "crew" %}
+      <h1>Crew</h1>
+    {% else %}
+      <h1>Your work</h1>
+    {% endif %}
+    <p>Signed in as {{ display_name }}.</p>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+
+  {% if landing == "admin" %}
+    {% if portfolios %}
+      {% for portfolio in portfolios %}
+        <section class="card">
+          <h2><a href="/portfolios/{{ portfolio.id }}">{{ portfolio.name }}</a></h2>
+          {% if portfolio.streams %}
+            <ul>
+              {% for stream in portfolio.streams %}
+                <li><a href="/value-streams/{{ stream.id }}">{{ stream.name }}</a></li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p>No value stream yet. Open the portfolio to add one.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    {% else %}
+      <p>Nothing here yet.</p>
+    {% endif %}
+    {% if can_create_portfolio %}
+      <form method="post" action="/portfolios">
+        <label>Name <input name="name"></label>
+        <button class="primary" type="submit">Create portfolio</button>
+      </form>
+    {% endif %}
+  {% elif landing == "crew" %}
+    <p>Choose who from the organization joins a team, and the seat they hold. Opening a portfolio or a value stream stays with an admin.</p>
+    <form method="post" action="/crew">
+      <label>Person
+        <select name="person_id">
+          {% for person in crew.people %}
+            <option value="{{ person.id }}">{{ person.name }}{% if person.role_label %} — {{ person.role_label }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Team
+        <select name="team_id">
+          {% for team in crew.teams %}
+            <option value="{{ team.id }}">{{ team.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Role
+        <select name="role">
+          {% for role in crew.roles %}
+            <option value="{{ role.value }}">{{ role.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="primary" type="submit">Add to team</button>
+    </form>
+    <h2>Organization</h2>
+    <ul>
+      {% for person in crew.people %}
+        <li>{{ person.name }}{% if person.role_label %} <span class="seat">{{ person.role_label }}</span>{% else %} <span class="count">No seat yet</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>{{ work.project_count }} project{% if work.project_count != 1 %}s{% endif %} · {{ work.sprint_count }} sprint{% if work.sprint_count != 1 %}s{% endif %}</p>
+    {% if work.current_project %}
+      <h2>Current project</h2>
+      <p><a href="{{ work.current_project.href }}">{{ work.current_project.name }}</a></p>
+      {% if work.current_sprint %}
+        <h2>Current sprint</h2>
+        <p><a href="/iterations/{{ work.current_sprint.id }}">{{ work.current_sprint.name }}</a> {{ work.current_sprint.starts_on }} to {{ work.current_sprint.ends_on }}</p>
+      {% endif %}
+      <h2>Past sprints</h2>
+      {% if work.past_sprints %}
+        <ul>
+          {% for sprint in work.past_sprints %}
+            <li><a href="/iterations/{{ sprint.id }}">{{ sprint.name }}</a> {{ sprint.starts_on }} to {{ sprint.ends_on }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No past sprints on this project.</p>
+      {% endif %}
+    {% else %}
+      <p>You are not on a project yet.</p>
+    {% endif %}
+    <h2>Past projects</h2>
+    {% if work.past_projects %}
+      <ul>
+        {% for project in work.past_projects %}
+          <li><a href="{{ project.href }}">{{ project.name }}</a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No other projects.</p>
+    {% endif %}
+  {% endif %}
+
+  <form method="post" action="/sign-out">
+    <button type="submit">Sign out</button>
+  </form>
+{% endblock %}

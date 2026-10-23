@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <h1>{{ person.name }}</h1>
+    <p>{{ person.role_label }}</p>
+    <p>{{ person.access_label }}</p>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/people/{{ person.id }}">
+    <label>Name <input name="name" value="{{ person.name }}"></label>
+    <button class="primary" type="submit">Save person</button>
+  </form>
+  {% if actor_is_admin and person.account_access != 'admin' %}
+    <form method="post" action="/people/{{ person.id }}/access">
+      <label>Access
+        <select name="account_access">
+          <option value="member"{% if person.account_access == 'member' %} selected{% endif %}>Member</option>
+          <option value="viewer"{% if person.account_access == 'viewer' %} selected{% endif %}>Viewer</option>
+        </select>
+      </label>
+      <button type="submit">Save access</button>
+    </form>
+  {% endif %}
+{% endblock %}

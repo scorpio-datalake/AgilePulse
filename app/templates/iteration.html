@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Iteration</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ iteration.name }}</h1>
+    <p>{{ iteration.starts_on }} to {{ iteration.ends_on }}</p>
+    <p>Completed size: {{ completed_size }}</p>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <h2>Backlog</h2>
+  <ol>
+    {% for story in stories %}
+      <li>
+        <a href="/stories/{{ story.id }}">{{ story.name }}</a>
+        <span>{{ story.estimate_value }}</span>
+        {% if story.accepted %}accepted{% endif %}
+        <form method="post" action="/iterations/{{ iteration.id }}/order">
+          <input type="hidden" name="story_id" value="{{ story.id }}">
+          <label>Order <input name="position" value="{{ story.position }}"></label>
+          <label>Product owner
+            <select name="person_id">
+              {% for person in people %}
+                <option value="{{ person.id }}">{{ person.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit">Save order</button>
+        </form>
+        <form method="post" action="/iterations/{{ iteration.id }}/acceptance">
+          <input type="hidden" name="story_id" value="{{ story.id }}">
+          <input type="hidden" name="accepted" value="{{ 0 if story.accepted else 1 }}">
+          <label>Product owner
+            <select name="person_id">
+              {% for person in people %}
+                <option value="{{ person.id }}">{{ person.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit">{% if story.accepted %}Unaccept{% else %}Accept{% endif %}</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ol>
+  <form method="post" action="/iterations/{{ iteration.id }}/stories">
+    <label>Story
+      <select name="story_id">
+        {% for story in available %}
+          <option value="{{ story.id }}">{{ story.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Product owner
+      <select name="person_id">
+        {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Add to iteration</button>
+  </form>
+  <h2>Board</h2>
+  {% for stage in stages %}
+    <h3>{{ stage }}</h3>
+    <ul>
+      {% for story in board[stage] %}
+        <li><a href="/stories/{{ story.id }}">{{ story.name }}</a></li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+  <h2>Limit exception</h2>
+  <ul>
+    {% for item in exceptions %}
+      <li>Limit raised: {{ item.reason }} for {{ item.name }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/iterations/{{ iteration.id }}/wip-exception">
+    <label>Story
+      <select name="story_id">
+        {% for story in stories %}
+          <option value="{{ story.id }}">{{ story.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Scrum master
+      <select name="person_id">
+        {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Reason <input name="reason"></label>
+    <button type="submit">Raise the limit for one story</button>
+  </form>
+{% endblock %}

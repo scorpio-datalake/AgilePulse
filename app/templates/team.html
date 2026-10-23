@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block body %}
+  <div x-data="{ tab: 'overview' }">
+    <header class="record-header">
+      <p class="record-type">Team</p>
+      {% include "breadcrumb.html" %}
+      <div class="header-row">
+        <h1>{{ team.name }}</h1>
+        <a class="header-link" href="/teams/{{ team.id }}/flow">Flow</a>
+      </div>
+      <nav class="view-tabs" aria-label="Team views">
+        <button type="button" @click="tab = 'overview'" :aria-current="tab === 'overview' ? 'page' : false">Overview</button>
+        <button type="button" @click="tab = 'board'" :aria-current="tab === 'board' ? 'page' : false">Board</button>
+        <button type="button" @click="tab = 'planning'" :aria-current="tab === 'planning' ? 'page' : false">Planning</button>
+        <button type="button" @click="tab = 'coordination'" :aria-current="tab === 'coordination' ? 'page' : false">Coordination</button>
+      </nav>
+    </header>
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+    <div class="workspace" x-show="tab === 'overview'">
+      <div class="main">
+        <section class="card">
+          <div class="card-title">
+            <h2>Members</h2>
+            <span class="count">{{ members|length }}</span>
+          </div>
+          <table class="members">
+            <thead>
+              <tr><th>Person</th><th>Seat</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for member in members %}
+                <tr>
+                  <td>{{ member.name }}</td>
+                  <td>{% if member.seat %}<span class="seat">{{ member.seat }}</span>{% endif %}</td>
+                  <td>
+                    <form method="post" action="/memberships/{{ member.id }}/remove">
+                      <button class="danger" type="submit">Remove</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+      </div>
+      <div class="side">
+        <section class="card">
+          <h2>Add a member</h2>
+          <form method="post" action="/teams/{{ team.id }}/members">
+            <label>Person
+              <select name="person_id">
+                {% for person in people %}
+                  <option value="{{ person.id }}">{{ person.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button class="primary" type="submit">Add to team</button>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Name</h2>
+          <form method="post" action="/teams/{{ team.id }}">
+            <label>Name <input name="name" value="{{ team.name }}"></label>
+            <button type="submit">Save team</button>
+          </form>
+        </section>
+      </div>
+    </div>
+    <div x-show="tab === 'board'" x-cloak>
+      <section class="card">
+        <h2>Delivery path</h2>
+        <div class="board">
+          {% for stage in stages %}
+            <section class="column">
+              <div class="column-title">
+                <h3>{{ stage }}</h3>
+                <span class="count">{{ stage_board[stage]|length }}</span>
+              </div>
+              <ul>
+                {% for story in stage_board[stage] %}
+                  <li><a href="/stories/{{ story.id }}">{{ story.name }}</a></li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+    <div class="workspace" x-show="tab === 'planning'" x-cloak>
+      <div class="main">
+        <section class="card">
+          <h2>Iterations</h2>
+          {% if iterations %}
+            <ul>
+              {% for iteration in iterations %}
+                <li><a href="/iterations/{{ iteration.id }}">{{ iteration.name }}</a> {{ iteration.starts_on }} to {{ iteration.ends_on }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <form method="post" action="/iterations">
+            <input type="hidden" name="team_id" value="{{ team.id }}">
+            <label>Cycle
+              <select name="cycle_id">
+                {% for cycle in cycle_choices %}
+                  <option value="{{ cycle.id }}">{{ cycle.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Name <input name="name"></label>
+            <label>Start <input name="starts_on"></label>
+            <label>End <input name="ends_on"></label>
+            <button type="submit">Open iteration</button>
+          </form>
+        </section>
+      </div>
+      <div class="side">
+        <section class="card">
+          <h2>Work in progress</h2>
+          <form method="post" action="/teams/{{ team.id }}/wip">
+            <label>Limit <input name="limit" value="{{ team.wip_limit }}"></label>
+            <button type="submit">Save limit</button>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Velocity</h2>
+          <ul class="velocity-history">
+            {% for row in velocity_history %}
+              <li class="velocity">{{ row.name }} {{ row.velocity }}</li>
+            {% endfor %}
+          </ul>
+        </section>
+        <section class="card">
+          <h2>Sizing</h2>
+          <form method="post" action="/teams/{{ team.id }}/sizing">
+            <label>Method
+              <select name="method">
+                <option value="tshirt"{% if team.sizing_method == "tshirt" %} selected{% endif %}>T-shirt</option>
+                <option value="points"{% if team.sizing_method == "points" %} selected{% endif %}>Points</option>
+              </select>
+            </label>
+            <div class="size-grid">
+              <label>XS <input name="size_xs" value="{{ team.size_xs }}"></label>
+              <label>S <input name="size_s" value="{{ team.size_s }}"></label>
+              <label>M <input name="size_m" value="{{ team.size_m }}"></label>
+              <label>L <input name="size_l" value="{{ team.size_l }}"></label>
+              <label>XL <input name="size_xl" value="{{ team.size_xl }}"></label>
+            </div>
+            <button type="submit">Save sizing</button>
+          </form>
+        </section>
+      </div>
+    </div>
+    <div x-show="tab === 'coordination'" x-cloak>
+      <div class="stack">
+        <section class="card">
+          <h2>Sync notes</h2>
+          <ul>
+            {% for note in sync_notes %}
+              <li>{{ note.team_name }} {{ note.note_on }} {{ note.body }}</li>
+            {% endfor %}
+          </ul>
+          <form method="post" action="/teams/{{ team.id }}/sync-notes">
+            <label>Date <input name="note_on"></label>
+            <label>Note <input name="body"></label>
+            <label>Scrum master
+              <select name="person_id">
+                {% for person in people %}
+                  <option value="{{ person.id }}">{{ person.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="submit">Save sync note</button>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Cross-team notes</h2>
+          <ul>
+            {% for note in cross_notes %}
+              <li>{{ note.asking_name }} asks {{ note.asked_name }}: {{ note.impediment }} / {{ note.dependency }}</li>
+            {% endfor %}
+          </ul>
+          <form method="post" action="/teams/{{ team.id }}/cross-notes">
+            <label>Impediment <input name="impediment"></label>
+            <label>Dependency <input name="dependency"></label>
+            <label>Asked team
+              <select name="asked_team_id">
+                {% for choice in team_choices %}
+                  <option value="{{ choice.id }}">{{ choice.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>Scrum master
+              <select name="person_id">
+                {% for person in people %}
+                  <option value="{{ person.id }}">{{ person.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="submit">Save cross-team note</button>
+          </form>
+        </section>
+        {% if show_retro %}
+          <section class="card">
+            <h2>Retrospective</h2>
+            <ul>
+              {% for note in retro_notes %}
+                <li class="retro-note">{{ note.iteration_name }}: {{ note.body }}
+                  <form method="post" action="/retro-notes/{{ note.id }}/promote">
+                    <label>Statement <input name="statement"></label>
+                    <label>Scrum master
+                      <select name="person_id">
+                        {% for person in people %}
+                          <option value="{{ person.id }}">{{ person.name }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+                    <button type="submit">Promote learning</button>
+                  </form>
+                </li>
+              {% endfor %}
+            </ul>
+            <form method="post" action="/teams/{{ team.id }}/retro-notes">
+              <label>Iteration
+                <select name="iteration_id">
+                  {% for iteration in iterations %}
+                    <option value="{{ iteration.id }}">{{ iteration.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>Note <input name="body"></label>
+              <label>Scrum master
+                <select name="person_id">
+                  {% for person in people %}
+                    <option value="{{ person.id }}">{{ person.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <button type="submit">Save retro note</button>
+            </form>
+          </section>
+        {% endif %}
+        <section class="card">
+          <h2>Promoted learnings</h2>
+          <ul>
+            {% for learning in learnings %}
+              <li class="promoted-learning">{{ learning.team_name }}: {{ learning.statement }}</li>
+            {% endfor %}
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+{% endblock %}

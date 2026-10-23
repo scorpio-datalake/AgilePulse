@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Planning cycle</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ cycle.name }}</h1>
+    <p>{{ cycle.starts_on }} to {{ cycle.ends_on }}</p>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <h2>Outcomes</h2>
+  {% if outcomes %}
+    <ul>
+      {% for outcome in outcomes %}
+        <li>
+          {% if outcome.team_name %}{{ outcome.team_name }}: {% else %}Group: {% endif %}
+          {{ outcome.description }} — {{ outcome.planned_signal }}
+          {% if outcome.actual_signal %} (actual: {{ outcome.actual_signal }}){% endif %}
+          {% for link in outcome.links %}
+            <span>{{ link.feature_name or link.story_name }}</span>
+          {% endfor %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <form method="post" action="/cycles/{{ cycle.id }}/outcomes">
+    <label>Description <input name="description"></label>
+    <label>Planned signal <input name="planned_signal"></label>
+    <label>Team
+      <select name="team_id">
+        <option value="">Group outcome</option>
+        {% for team in teams %}
+          <option value="{{ team.id }}">{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Add outcome</button>
+  </form>
+  {% for outcome in outcomes %}
+    <form method="post" action="/outcomes/{{ outcome.id }}/actual">
+      <label>Actual signal for {{ outcome.description }} <input name="actual_signal" value="{{ outcome.actual_signal }}"></label>
+      <button type="submit">Save actual signal</button>
+    </form>
+  {% endfor %}
+  <h2>Linked work</h2>
+  <form method="post" action="/cycles/{{ cycle.id }}/links">
+    <label>Outcome
+      <select name="outcome_id">
+        {% for outcome in outcomes %}
+          <option value="{{ outcome.id }}">{{ outcome.description }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Feature
+      <select name="feature_id">
+        <option value=""></option>
+        {% for feature in features %}
+          <option value="{{ feature.id }}">{{ feature.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Story
+      <select name="story_id">
+        <option value=""></option>
+        {% for story in stories %}
+          <option value="{{ story.id }}">{{ story.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Link work</button>
+  </form>
+  <h2>Milestones</h2>
+  <ul>
+    {% for milestone in milestones %}
+      <li>{{ milestone.name }} {{ milestone.happens_on }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/cycles/{{ cycle.id }}/milestones">
+    <label>Name <input name="name"></label>
+    <label>Date <input name="happens_on"></label>
+    <button type="submit">Add milestone</button>
+  </form>
+  <h2>Dependencies</h2>
+  <ul>
+    {% for item in dependencies %}
+      <li>{{ item.description }} owner {{ item.owner_name }} needed {{ item.needed_by }} opened {{ item.opened_on }} {{ item.status }}{% if item.team_name %} team {{ item.team_name }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/cycles/{{ cycle.id }}/dependencies">
+    <label>Description <input name="description"></label>
+    <label>Owner
+      <select name="owner_person_id">
+        {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Needed by <input name="needed_by"></label>
+    <label>Opened <input name="opened_on"></label>
+    <label>Status
+      <select name="status">
+        <option value="open">Open</option>
+        <option value="done">Done</option>
+        <option value="blocked">Blocked</option>
+      </select>
+    </label>
+    <label>Providing team
+      <select name="providing_team_id">
+        <option value=""></option>
+        {% for team in teams %}
+          <option value="{{ team.id }}">{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Add dependency</button>
+  </form>
+  <h2>Dependent work</h2>
+  {% if dependent_work %}
+    <ul class="dependent-work">
+      {% for item in dependent_work %}
+        <li>{{ item.feature_name }}: {{ item.needed }} done when {{ item.done_looks_like }} by {{ item.needed_by }} {{ item.status }}{% if item.team_name %} {{ item.team_name }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <form method="post" action="/cycles/{{ cycle.id }}/dependent-work">
+    <label>Feature
+      <select name="feature_id">
+        {% for feature in features %}
+          <option value="{{ feature.id }}">{{ feature.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Needed <input name="needed"></label>
+    <label>Done looks like <input name="done_looks_like"></label>
+    <label>Needed by <input name="needed_by"></label>
+    <label>Status
+      <select name="status">
+        <option value="open">Open</option>
+        <option value="done">Done</option>
+        <option value="not_needed">Not needed</option>
+      </select>
+    </label>
+    <label>Providing team
+      <select name="providing_team_id">
+        <option value=""></option>
+        {% for team in teams %}
+          <option value="{{ team.id }}">{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Add dependent work</button>
+  </form>
+  <section id="reviews">
+    <h2>Architecture reviews</h2>
+    {% for feature in architecture_features %}
+      <p class="architecture-review">{{ feature.name }}</p>
+    {% endfor %}
+    <h2>PII reviews</h2>
+    {% for feature in pii_features %}
+      <p class="pii-review">{{ feature.name }}</p>
+    {% endfor %}
+    <ul>
+      {% for review in reviews %}
+        <li>{{ review.kind }} {{ review.feature_name }} {{ review.result }} by {{ review.reviewer_name }} on {{ review.reviewed_on }}</li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/cycles/{{ cycle.id }}/reviews">
+      <label>Kind
+        <select name="kind">
+          <option value="architecture">Architecture</option>
+          <option value="pii">PII</option>
+        </select>
+      </label>
+      <label>Feature
+        <select name="feature_id">
+          {% for feature in features %}
+            <option value="{{ feature.id }}">{{ feature.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Reviewer
+        <select name="reviewer_person_id">
+          {% for person in people %}
+            <option value="{{ person.id }}">{{ person.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Date <input name="reviewed_on"></label>
+      <label>Result
+        <select name="result">
+          <option value="approved">Approved</option>
+          <option value="changes_requested">Changes requested</option>
+        </select>
+      </label>
+      <button type="submit">Save review</button>
+    </form>
+  </section>
+  <section id="risks">
+    <h2>Risks</h2>
+    <ul>
+      {% for risk in risks %}
+        <li>
+          {{ risk.description }} {{ risk.state }}
+          <form method="post" action="/risks/{{ risk.id }}">
+            <select name="state">
+              {% for state in ["open", "owned", "accepted", "mitigated", "closed"] %}
+                <option value="{{ state }}"{% if risk.state == state %} selected{% endif %}>{{ state }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit">Save risk</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/cycles/{{ cycle.id }}/risks">
+      <label>Description <input name="description"></label>
+      <button type="submit">Add risk</button>
+    </form>
+  </section>
+  <h2>Confidence</h2>
+  {% if average %}
+    <p>Average: {{ average }}</p>
+  {% endif %}
+  <ul>
+    {% for vote in votes %}
+      <li>{{ vote.name }} {{ vote.score }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/cycles/{{ cycle.id }}/confidence">
+    <label>Person
+      <select name="person_id">
+        {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Score <input name="score"></label>
+    <button type="submit">Save confidence</button>
+  </form>
+  <h2>Capacity</h2>
+  <ul>
+    {% for note in capacities %}
+      <li>{{ note.team_name }}: {{ note.note }}</li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/cycles/{{ cycle.id }}/capacity">
+    <label>Team
+      <select name="team_id">
+        {% for team in teams %}
+          <option value="{{ team.id }}">{{ team.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Note <input name="note"></label>
+    <button type="submit">Save capacity</button>
+  </form>
+  <h2>Decisions</h2>
+  <ul>
+    {% for decision in decisions %}
+      <li>{{ decision.statement }} by {{ decision.name }} acting as {{ decision.acting_role }}</li>
+    {% endfor %}
+  </ul>
+  {% if facilitator_id %}
+    <form method="post" action="/cycles/{{ cycle.id }}/decisions">
+      <label>Statement <input name="statement"></label>
+      <label>Facilitator
+        <select name="person_id">
+          {% for person in people %}
+            <option value="{{ person.id }}">{{ person.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Save decision</button>
+    </form>
+  {% else %}
+    <p>Facilitator seat is empty.</p>
+  {% endif %}
+{% endblock %}

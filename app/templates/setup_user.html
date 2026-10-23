@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block body %}
+  <h1>Add a user.</h1>
+  <p>The admin password is set. Add the first person before the home page.</p>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/setup/user">
+    <label>Name <input name="name"></label>
+    <button class="primary" type="submit">Add user</button>
+  </form>
+  <form method="post" action="/sign-out">
+    <button type="submit">Sign out</button>
+  </form>
+{% endblock %}

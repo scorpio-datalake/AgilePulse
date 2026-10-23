@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Evidence</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ work.name }}</h1>
+  </header>
+  <ul>
+    {% for entry in entries %}
+      <li class="evidence">{{ entry.actor_kind }} {{ entry.actor_name }} {{ entry.action }} {{ entry.before_text }} {{ entry.after_text }}</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

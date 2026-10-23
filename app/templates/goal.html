@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Goal</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ goal.name }}</h1>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/goals/{{ goal.id }}">
+    <label>Name <input name="name" value="{{ goal.name }}"></label>
+    <button type="submit">Save goal</button>
+  </form>
+  <h2>Initiatives</h2>
+  {% if initiatives %}
+    <ul>
+      {% for initiative in initiatives %}
+        <li><a href="/initiatives/{{ initiative.id }}">{{ initiative.name }}</a> <span>{{ initiative.state }}</span></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <form method="post" action="/initiatives">
+    <input type="hidden" name="goal_id" value="{{ goal.id }}">
+    <label>Name <input name="name"></label>
+    <button class="primary" type="submit">Add initiative</button>
+  </form>
+{% endblock %}

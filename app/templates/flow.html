@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Flow</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ heading }}</h1>
+  </header>
+  <form method="get" action="{{ form_action }}">
+    <label>{{ scope }}
+      <select name="{{ choice_field }}">
+        {% for choice in choices %}
+          <option value="{{ choice.id }}"{% if selected and choice.id == selected.id %} selected{% endif %}>{{ choice.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Show flow</button>
+  </form>
+  {% if measures %}
+    <p class="throughput">{{ measures.throughput }}</p>
+    <p class="lead-time">{{ measures.lead_time }}</p>
+    <p class="wip">{{ measures.wip }}</p>
+    <p class="active">{{ measures.active }}</p>
+    <p class="wait">{{ measures.wait }}</p>
+    <p class="mix-feature">{{ measures.mix.feature }}</p>
+    <p class="mix-platform">{{ measures.mix.platform }}</p>
+    <p class="mix-prototype">{{ measures.mix.prototype }}</p>
+    <p class="mix-experiment">{{ measures.mix.experiment }}</p>
+  {% endif %}
+  <ul>
+    {% for row in reliability %}
+      <li class="reliability">{{ row.description }} {{ row.reliability }}</li>
+    {% endfor %}
+  </ul>
+  <ul class="velocity-history">
+    {% for row in velocity %}
+      <li class="velocity">{{ row.name }} {{ row.velocity }}</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

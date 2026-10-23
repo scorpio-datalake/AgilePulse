@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block body %}
+  <div x-data="{ tab: 'overview' }">
+    <header class="record-header">
+      <p class="record-type">Delivery group</p>
+      {% include "breadcrumb.html" %}
+      <h1>{{ group.name }}</h1>
+      {% if not teams %}
+        <form method="post" action="/teams">
+          <input type="hidden" name="delivery_group_id" value="{{ group.id }}">
+          <label>Name <input name="name"></label>
+          <button class="primary" type="submit">Add team</button>
+        </form>
+      {% endif %}
+      <nav class="view-tabs" aria-label="Delivery group views">
+        <button type="button" @click="tab = 'overview'" :aria-current="tab === 'overview' ? 'page' : false">Overview</button>
+        <button type="button" @click="tab = 'board'" :aria-current="tab === 'board' ? 'page' : false">Board</button>
+        <button type="button" @click="tab = 'planning'" :aria-current="tab === 'planning' ? 'page' : false">Planning</button>
+      </nav>
+    </header>
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+    <div class="workspace" x-show="tab === 'overview'">
+      <div class="main">
+        <section class="card">
+          <div class="card-title">
+            <h2>Members</h2>
+            <span class="count">{{ members|length }}</span>
+          </div>
+          <table class="members">
+            <thead>
+              <tr><th>Person</th><th>Seat</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for member in members %}
+                <tr>
+                  <td>{{ member.name }}</td>
+                  <td>{{ member.seat }}</td>
+                  <td>
+                    <form method="post" action="/memberships/{{ member.id }}/remove">
+                      <button class="danger" type="submit">Remove</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+        <section class="card">
+          <h2>Teams</h2>
+          {% if teams %}
+            <ul>
+              {% for team in teams %}
+                <li><a href="/teams/{{ team.id }}">{{ team.name }}</a></li>
+              {% endfor %}
+            </ul>
+            <form method="post" action="/teams">
+              <input type="hidden" name="delivery_group_id" value="{{ group.id }}">
+              <label>Name <input name="name"></label>
+              <button type="submit">Add team</button>
+            </form>
+          {% endif %}
+        </section>
+      </div>
+      <div class="side">
+        <section class="card">
+          <h2>Add a member</h2>
+          <form method="post" action="/delivery-groups/{{ group.id }}/members">
+            <label>Person
+              <select name="person_id">
+                {% for person in people %}
+                  <option value="{{ person.id }}">{{ person.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="submit">Add to delivery group</button>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Seats</h2>
+          <table class="seats">
+            <tbody>
+              {% for assignment in assignments %}
+                <tr>
+                  <td>{{ assignment.label }}: {{ assignment.name }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <h2>Facilitator</h2>
+          {% if facilitator %}
+            <p>Facilitator: {{ facilitator.name }}</p>
+          {% else %}
+            <p>Facilitator seat is empty.</p>
+          {% endif %}
+        </section>
+        <section class="card">
+          <h2>Name</h2>
+          <form method="post" action="/delivery-groups/{{ group.id }}">
+            <label>Name <input name="name" value="{{ group.name }}"></label>
+            <button type="submit">Save delivery group</button>
+          </form>
+        </section>
+      </div>
+    </div>
+    <div class="stack" x-show="tab === 'board'" x-cloak>
+      <section class="card">
+        <h2>Delivery path</h2>
+        <div class="board">
+          {% for stage in stages %}
+            <section class="column">
+              <div class="column-title">
+                <h3>{{ stage }}</h3>
+              </div>
+              <ul>
+                {% for feature in feature_board[stage] %}
+                  <li><a href="/features/{{ feature.id }}">{{ feature.name }}</a></li>
+                {% endfor %}
+                {% for story in story_board[stage] %}
+                  <li><a href="/stories/{{ story.id }}">{{ story.name }}</a></li>
+                {% endfor %}
+              </ul>
+            </section>
+          {% endfor %}
+        </div>
+      </section>
+      <section class="card">
+        <h2>Flow</h2>
+        <p><a href="/delivery-groups/{{ group.id }}/flow">Flow</a></p>
+      </section>
+      <section class="card">
+        <h2>Policies</h2>
+        <ul>
+          {% for policy in policies %}
+            <li class="policy">{{ policy.effect }} into {{ policy.to_stage }}{% if policy.from_stage %} from {{ policy.from_stage }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="/delivery-groups/{{ group.id }}/policies">
+          <label>From
+            <select name="from_stage">
+              <option value="">Any stage</option>
+              {% for stage in stages %}
+                <option value="{{ stage }}">{{ stage }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Into
+            <select name="to_stage">
+              {% for stage in stages %}
+                <option value="{{ stage }}">{{ stage }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Effect
+            <select name="effect">
+              <option value="block">Block</option>
+              <option value="warning">Warning</option>
+            </select>
+          </label>
+          <button type="submit">Save policy</button>
+        </form>
+      </section>
+    </div>
+    <div x-show="tab === 'planning'" x-cloak>
+      <section class="card">
+        <h2>Planning cycles</h2>
+        {% if cycles %}
+          <ul>
+            {% for cycle in cycles %}
+              <li><a href="/cycles/{{ cycle.id }}">{{ cycle.name }}</a> {{ cycle.starts_on }} to {{ cycle.ends_on }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <form method="post" action="/cycles">
+          <input type="hidden" name="delivery_group_id" value="{{ group.id }}">
+          <label>Name <input name="name"></label>
+          <label>Start <input name="starts_on"></label>
+          <label>End <input name="ends_on"></label>
+          <button type="submit">Open cycle</button>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endblock %}

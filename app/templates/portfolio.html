@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Portfolio</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ portfolio.name }}</h1>
+    {% if can_create_stream and not streams %}
+      <form method="post" action="/value-streams">
+        <input type="hidden" name="portfolio_id" value="{{ portfolio.id }}">
+        <label>Name <input name="name"></label>
+        <button class="primary" type="submit">Add value stream</button>
+      </form>
+    {% endif %}
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/portfolios/{{ portfolio.id }}">
+    <label>Name <input name="name" value="{{ portfolio.name }}"></label>
+    <button type="submit">Save portfolio</button>
+  </form>
+  <h2>Value streams</h2>
+  {% if streams %}
+    <ul>
+      {% for stream in streams %}
+        <li><a href="/value-streams/{{ stream.id }}">{{ stream.name }}</a></li>
+      {% endfor %}
+    </ul>
+    {% if can_create_stream %}
+      <form method="post" action="/value-streams">
+        <input type="hidden" name="portfolio_id" value="{{ portfolio.id }}">
+        <label>Name <input name="name"></label>
+        <button type="submit">Add value stream</button>
+      </form>
+    {% endif %}
+  {% endif %}
+{% endblock %}

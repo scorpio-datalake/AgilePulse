@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgilePulse</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js"></script>
+  <script defer src="/static/alpine.min.js"></script>
+  <script>
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.querySelectorAll(".theme-toggle").forEach(function (button) {
+        var dark = theme === "dark";
+        button.textContent = dark ? "Light mode" : "Dark mode";
+        button.setAttribute("aria-pressed", dark ? "true" : "false");
+      });
+    }
+    function toggleTheme() {
+      var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      try { localStorage.setItem("theme", next); } catch (error) {}
+      applyTheme(next);
+    }
+    (function () {
+      var stored = null;
+      try { stored = localStorage.getItem("theme"); } catch (error) {}
+      var theme = stored === "dark" || stored === "light"
+        ? stored
+        : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+      document.addEventListener("DOMContentLoaded", function () { applyTheme(theme); });
+    })();
+  </script>
+</head>
+<body class="{% if nav_tree is defined %}app{% else %}gate{% endif %}">
+  <header class="site-header">
+    <a class="site-logo-link" href="/">
+      <img class="site-mark site-logo-light" src="/static/logos/mark.png" alt="">
+      <img class="site-mark site-logo-dark" src="/static/logos/mark-dark.png" alt="">
+      <span class="site-name">AgilePulse</span>
+    </a>
+    <p class="site-tagline">The AI-powered Scaled Agile framework for PI planning, value streams, and cross-company team alignment.</p>
+  </header>
+  <div class="page">
+    {% if nav_tree is defined %}
+      {% include "sidebar.html" %}
+    {% endif %}
+    <div class="content">
+      {% if nav_tree is not defined %}
+        {% include "theme_toggle.html" %}
+      {% endif %}
+      {% block body %}{% endblock %}
+    </div>
+  </div>
+</body>
+</html>

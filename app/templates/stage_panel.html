@@ -1,0 +1,123 @@
+<h2>Stage</h2>
+<p class="stage">{{ work.stage }}</p>
+{% if history %}
+  <ul>
+    {% for change in history %}
+      <li class="stage-change">{{ change.person_name }} from {{ change.from_stage }} to {{ change.to_stage }} at {{ change.changed_at }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+<form method="post" action="/{{ work_root }}/{{ work.id }}/stage">
+  <label>Stage
+    <select name="stage">
+      {% for stage in stages %}
+        <option value="{{ stage }}"{% if work.stage == stage %} selected{% endif %}>{{ stage }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Person
+    <select name="person_id">
+      {% for person in people %}
+        <option value="{{ person.id }}">{{ person.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Save stage</button>
+</form>
+{% for block in blocks %}
+  <form method="post" action="/{{ work_root }}/{{ work.id }}/policy-approval">
+    <input type="hidden" name="policy_id" value="{{ block.id }}">
+    <p class="policy-block">Blocked move into {{ block.to_stage }}</p>
+    <label>Approve as
+      <select name="person_id">
+        {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Approve blocked move</button>
+  </form>
+{% endfor %}
+<p><a href="/{{ work_root }}/{{ work.id }}/evidence">Evidence</a></p>
+<form method="post" action="/{{ work_root }}/{{ work.id }}/approval">
+  <label>Approve as
+    <select name="person_id">
+      {% for person in people %}
+        <option value="{{ person.id }}">{{ person.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Approve definition</button>
+</form>
+{% if work.kind == "prototype" or work.kind == "experiment" %}
+  <form method="post" action="/{{ work_root }}/{{ work.id }}/ship">
+    <label>Ship as
+      <select name="person_id">
+        {% for person in people %}
+          <option value="{{ person.id }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Ship this learning item</button>
+  </form>
+{% endif %}
+<h2>Done list</h2>
+<form method="post" action="/{{ work_root }}/{{ work.id }}/done-list">
+  {% for item in done_items %}
+    <label>
+      <input type="checkbox" name="{{ item.key }}" value="1"{% if item.done %} checked{% endif %}>
+      {{ item.label }}
+    </label>
+  {% endfor %}
+  <button type="submit">Save done list</button>
+</form>
+{% if work_root == "features" %}
+  <form method="post" action="/features/{{ work.id }}/path-flags">
+    <label>Changes production
+      <select name="changes_production">
+        <option value="0"{% if not work.changes_production %} selected{% endif %}>No</option>
+        <option value="1"{% if work.changes_production %} selected{% endif %}>Yes</option>
+      </select>
+    </label>
+    <label>Architecture review
+      <select name="architecture_applies">
+        <option value="0"{% if not work.architecture_applies %} selected{% endif %}>Not applicable</option>
+        <option value="1"{% if work.architecture_applies %} selected{% endif %}>Applies</option>
+      </select>
+    </label>
+    <label>PII review
+      <select name="pii_applies">
+        <option value="0"{% if not work.pii_applies %} selected{% endif %}>Not applicable</option>
+        <option value="1"{% if work.pii_applies %} selected{% endif %}>Applies</option>
+      </select>
+    </label>
+    <button type="submit">Save path flags</button>
+  </form>
+{% else %}
+  <form method="post" action="/stories/{{ work.id }}/production">
+    <label>Changes production
+      <select name="changes_production">
+        <option value="0"{% if not work.changes_production %} selected{% endif %}>No</option>
+        <option value="1"{% if work.changes_production %} selected{% endif %}>Yes</option>
+      </select>
+    </label>
+    <button type="submit">Save path flags</button>
+  </form>
+{% endif %}
+<h2>Acceptance criteria</h2>
+<form method="post" action="/{{ work_root }}/{{ work.id }}/criteria">
+  <label>Measure <input name="measure_name" value="{{ work.measure_name }}"></label>
+  <label>Threshold <input name="threshold" value="{{ work.threshold }}"></label>
+  <label>Dataset <input name="dataset_label" value="{{ work.dataset_label }}"></label>
+  <label>Latency target <input name="latency_target" value="{{ work.latency_target }}"></label>
+  <button type="submit">Save acceptance criteria</button>
+</form>
+<p class="criterion">{{ work.measure_name }} {{ work.threshold }} {{ work.dataset_label }} {{ work.latency_target }}</p>
+<h2>Agent action</h2>
+<form method="post" action="/{{ work_root }}/{{ work.id }}/agent-action">
+  <label>Action <input name="action"></label>
+  <label>Agent name <input name="actor_name"></label>
+  <label>Before <input name="before_text"></label>
+  <label>After <input name="after_text"></label>
+  <button type="submit">Record agent action</button>
+</form>

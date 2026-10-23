@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Story</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ story.name }}</h1>
+    <p>{{ story.kind_label }}</p>
+    {% if story.estimate_value is not none %}
+      <p>Estimate: {% if story.estimate_label %}{{ story.estimate_label }} is {% endif %}{{ story.estimate_value }}</p>
+    {% endif %}
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/stories/{{ story.id }}">
+    <label>Name <input name="name" value="{{ story.name }}"></label>
+    <label>Kind
+      <select name="kind">
+        {% for value, label in [("feature", "Feature"), ("platform", "Platform"), ("prototype", "Prototype"), ("experiment", "Experiment")] %}
+          <option value="{{ value }}"{% if story.kind == value %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Save story</button>
+  </form>
+  {% set work = story %}
+  {% set work_root = "stories" %}
+  {% include "stage_panel.html" %}
+  <h2>Estimate</h2>
+  {% if teams %}
+    <p>The team's method decides what is stored. T-shirt stores the team's number for the size. Points stores the number you type.</p>
+    <form method="post" action="/stories/{{ story.id }}/estimate">
+      <label>Team
+        <select name="team_id">
+          {% for team in teams %}
+            <option value="{{ team.id }}"{% if story.team_id == team.id %} selected{% endif %}>{{ team.group_name }} / {{ team.name }} ({{ team.sizing_method }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>T-shirt size
+        <select name="label">
+          {% for size in ["XS", "S", "M", "L", "XL"] %}
+            <option value="{{ size }}"{% if story.estimate_label == size %} selected{% endif %}>{{ size }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Points <input name="points" value="{{ story.estimate_value if story.estimate_label is none and story.estimate_value is not none else '' }}"></label>
+      <button type="submit">Save estimate</button>
+    </form>
+  {% else %}
+    <p>Add a team before estimating this story.</p>
+  {% endif %}
+{% endblock %}

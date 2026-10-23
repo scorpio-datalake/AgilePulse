@@ -1,0 +1,19 @@
+- [x] **E1 Local Foundations**
+- [x] **E2 Organization and roles**
+- [x] **E3 Navigation**
+- [x] **E4 Work model**
+- [x] **E5 Delivery path**
+- [x] **E6 Cycle alignment**
+- [x] **E7 Team execution**
+- [ ] **E8 Evidence review**
+- [x] **E9 Flow and priority**
+- [x] **E10 Governance and evidence**
+- [ ] **E11 Portfolio investment**
+- [ ] **E12 Engine and packaging**
+- [ ] **E13 Planning assistants**
+- [ ] **E14 Database adapters**
+- [ ] **E15 Auth extension**
+- [ ] **E16 Optional coordination**
+- [ ] **E17 Timeboxed research and the product-manager guide**
+- [ ] **E18 Agent release controls**
+- [ ] **E19 Bring your own tool**

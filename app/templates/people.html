@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <h1>People</h1>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <ul>
+    {% for person in people %}
+      <li>
+        <a href="/people/{{ person.id }}">{{ person.name }}</a>
+        <span>{{ person.role_label }}</span>
+        <span>{{ person.access_label }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/people" x-data="{ role: 'team_member' }">
+    <label>Name <input name="name"></label>
+    <label>Role
+      <select name="role" x-model="role">
+        <option value="team_member">Team member</option>
+        <option value="product_owner">Product owner</option>
+        <option value="scrum_master">Scrum master</option>
+        <option value="technical_lead">Technical lead</option>
+        <option value="business_stakeholder">Business stakeholder</option>
+        <option value="product_manager">Product manager</option>
+        <option value="group_facilitator">Group facilitator</option>
+        <option value="stream_owner">Stream owner</option>
+      </select>
+    </label>
+    <label x-cloak x-show="role === 'stream_owner'">Value stream
+      <select name="value_stream_id" :disabled="role !== 'stream_owner'">
+        {% for stream in streams %}
+          <option value="{{ stream.id }}">{{ stream.portfolio_name }} / {{ stream.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label x-cloak x-show="role === 'group_facilitator' || role === 'product_manager' || role === 'business_stakeholder'">Delivery group
+      <select name="delivery_group_id" :disabled="role !== 'group_facilitator' && role !== 'product_manager' && role !== 'business_stakeholder'">
+        {% for group in groups %}
+          <option value="{{ group.id }}">{{ group.stream_name }} / {{ group.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if teams %}
+      <label>Team
+        <select name="team_id">
+          <option value="">None</option>
+          {% for team in teams %}
+            <option value="{{ team.id }}">{{ team.group_name }} / {{ team.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% else %}
+      <p x-show="role === 'team_member' || role === 'product_owner' || role === 'scrum_master' || role === 'technical_lead'">Team membership is chosen on the team, after a team exists. Some people are not on a delivery team.</p>
+    {% endif %}
+    <button class="primary" type="submit">Add person</button>
+  </form>
+{% endblock %}

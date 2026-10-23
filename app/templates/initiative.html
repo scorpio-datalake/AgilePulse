@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="record-header">
+    <p class="record-type">Initiative</p>
+    {% include "breadcrumb.html" %}
+    <h1>{{ initiative.name }}</h1>
+    <p>{{ initiative.state }}</p>
+  </header>
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+  <form method="post" action="/initiatives/{{ initiative.id }}">
+    <label>Name <input name="name" value="{{ initiative.name }}"></label>
+    <button type="submit">Save initiative</button>
+  </form>
+  <form method="post" action="/initiatives/{{ initiative.id }}/state">
+    <label>State
+      <select name="state">
+        {% for state in ["Proposed", "Shaping", "Ready", "Active", "Done"] %}
+          <option value="{{ state }}"{% if initiative.state == state %} selected{% endif %}>{{ state }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Save state</button>
+  </form>
+  <h2>Features</h2>
+  {% if features %}
+    <ul>
+      {% for feature in features %}
+        <li><a href="/features/{{ feature.id }}">{{ feature.name }}</a> <span>{{ feature.kind_label }}</span> <span class="delay-cost">{{ feature.delay_cost if feature.delay_cost is not none else "" }}</span></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <form method="post" action="/features">
+    <input type="hidden" name="initiative_id" value="{{ initiative.id }}">
+    <label>Name <input name="name"></label>
+    <label>Kind
+      <select name="kind">
+        <option value="feature">Feature</option>
+        <option value="platform">Platform</option>
+        <option value="prototype">Prototype</option>
+        <option value="experiment">Experiment</option>
+      </select>
+    </label>
+    <button class="primary" type="submit">Add feature</button>
+  </form>
+{% endblock %}
