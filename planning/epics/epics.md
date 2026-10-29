@@ -8,7 +8,7 @@
 - [ ] **E8 Evidence review**
 - [x] **E9 Flow and priority**
 - [x] **E10 Governance and evidence**
-- [ ] **E11 Portfolio investment**
+- [x] **E11 Portfolio investment**
 - [ ] **E12 Engine and packaging**
 - [ ] **E13 Planning assistants**
 - [ ] **E14 Database adapters**

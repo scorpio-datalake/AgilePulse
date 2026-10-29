@@ -1,6 +1,6 @@
 # Epic 11 — Portfolio investment
 
-Status: stories written — not started
+Status: done
 
 ## Outcome
 
@@ -65,18 +65,18 @@ Turn pieces off per group. A Taiga project enables Scrum, Kanban, issues, and th
 
 Check a box when that story can be exercised on localhost. Order is the build order. A later story can assume the earlier ones exist.
 
-- [ ] **11.1 Stream guardrail.** A value stream stores one guardrail: a kind of budget or capacity, and a whole number of at least 1. The number is the most initiatives that stream may carry. The kind records how leadership reads that number. A guardrail with no stream is refused. A kind outside that list is refused. A number below 1 is refused. The guardrail is a SQLAlchemy model. The request body is a Pydantic model.
+- [x] **11.1 Stream guardrail.** A value stream stores one guardrail: a kind of budget or capacity, and a whole number of at least 1. The number is the most initiatives that stream may carry. The kind records how leadership reads that number. A guardrail with no stream is refused. A kind outside that list is refused. A number below 1 is refused. The guardrail is a SQLAlchemy model. The request body is a Pydantic model.
 
   Done when: save capacity and 4 on a stream, reload, and see them. Save a budget of 0 and see it refused.
 
-- [ ] **11.2 Workshop record.** A value stream stores a workshop: the people who attended, a proposed allocation for each initiative named, and the recommendation. Each participant is a person already in the organization. Each allocation names an initiative on that stream and a whole number of at least 1. The recommendation is text. An empty recommendation is refused. A person who is not in the organization is refused. An initiative on another stream is refused. Saving the workshop does not change the guardrail and does not change an initiative. The workshop and its allocations are SQLAlchemy models. The request body is a Pydantic model.
+- [x] **11.2 Workshop record.** A value stream stores a workshop: the people who attended, a proposed allocation for each initiative named, and the recommendation. Each participant is a person already in the organization. Each allocation names an initiative on that stream and a whole number of at least 1. The recommendation is text. An empty recommendation is refused. A person who is not in the organization is refused. An initiative on another stream is refused. Saving the workshop does not change the guardrail and does not change an initiative. The workshop and its allocations are SQLAlchemy models. The request body is a Pydantic model.
 
   Done when: record two people, an allocation of 2 on one initiative and 3 on another, and a recommendation, reload, and see them. Submit an empty recommendation and see it refused.
 
-- [ ] **11.3 Portfolio comparison.** The portfolio page lists each stream’s guardrail beside its load. Load is the count of initiatives on that stream whose state is not Done. A stream with no guardrail shows the load and no guardrail. A stream whose load is greater than its guardrail shows over. The page also shows the recommendation from the latest workshop on that stream. The page does not move initiatives.
+- [x] **11.3 Portfolio comparison.** The portfolio page lists each stream’s guardrail beside its load. Load is the count of initiatives on that stream whose state is not Done. A stream with no guardrail shows the load and no guardrail. A stream whose load is greater than its guardrail shows over. The page also shows the recommendation from the latest workshop on that stream. The page does not move initiatives.
 
   Done when: with a guardrail of 4 and five initiatives that are not Done, see load 5 and over. Mark one Done, reload, and see load 4. See the recommendation from 11.2 on that stream.
 
-- [ ] **11.4 Portfolio investment test.** An automated test boots the app against a temporary SQLite file, signs in through the test client, and walks the local proof: a guardrail on a value stream, a workshop recommendation, and both visible on the portfolio page. It does not open a browser and it does not call a network service.
+- [x] **11.4 Portfolio investment test.** An automated test boots the app against a temporary SQLite file, signs in through the test client, and walks the local proof: a guardrail on a value stream, a workshop recommendation, and both visible on the portfolio page. It does not open a browser and it does not call a network service.
 
   Done when: the suite passes that test on a clean machine with only the local process and a temp file.
