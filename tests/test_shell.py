@@ -50,7 +50,7 @@ def test_sqlite_is_created_and_kept_across_startups(tmp_path: Path):
         versions = connection.execute(
             "SELECT version FROM schema_migrations"
         ).fetchall()
-        assert versions == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,)]
+        assert versions == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,)]
 
     with _client(first_path):
         pass

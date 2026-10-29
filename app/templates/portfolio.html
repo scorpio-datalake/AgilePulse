@@ -21,11 +21,26 @@
   </form>
   <h2>Value streams</h2>
   {% if streams %}
-    <ul>
-      {% for stream in streams %}
-        <li><a href="/value-streams/{{ stream.id }}">{{ stream.name }}</a></li>
-      {% endfor %}
-    </ul>
+    <table class="investment">
+      <thead>
+        <tr>
+          <th>Value stream</th>
+          <th>Guardrail</th>
+          <th>Load</th>
+          <th>Recommendation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stream in streams %}
+          <tr>
+            <td><a href="/value-streams/{{ stream.id }}">{{ stream.name }}</a></td>
+            <td class="guardrail">{% if stream.guardrail %}{{ stream.guardrail.kind }} {{ stream.guardrail.amount }}{% else %}no guardrail{% endif %}</td>
+            <td class="load">load {{ stream.load }}{% if stream.over %} <span class="over">over</span>{% endif %}</td>
+            <td class="recommendation">{{ stream.recommendation or "" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
     {% if can_create_stream %}
       <form method="post" action="/value-streams">
         <input type="hidden" name="portfolio_id" value="{{ portfolio.id }}">

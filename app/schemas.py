@@ -471,3 +471,33 @@ class AgentActionForm(BaseModel):
     actor_name: str = Field(min_length=1, max_length=120)
     before_text: str = Field(min_length=1, max_length=240)
     after_text: str = Field(min_length=1, max_length=240)
+
+
+GuardrailKind = Literal["budget", "capacity"]
+
+
+class GuardrailForm(BaseModel):
+    value_stream_id: int = Field(ge=1)
+    kind: GuardrailKind
+    amount: int = Field(ge=1)
+
+
+class AllocationForm(BaseModel):
+    initiative_id: int = Field(ge=1)
+    amount: int = Field(ge=1)
+
+
+class WorkshopForm(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    value_stream_id: int = Field(ge=1)
+    person_ids: list[int] = Field(default_factory=list)
+    allocations: list[AllocationForm]
+    recommendation: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("person_ids")
+    @classmethod
+    def people_are_ids(cls, value: list[int]) -> list[int]:
+        if any(person_id < 1 for person_id in value):
+            raise ValueError("person")
+        return value

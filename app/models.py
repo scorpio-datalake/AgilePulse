@@ -617,3 +617,56 @@ class Evidence(Base):
     happened_at: Mapped[str] = mapped_column(Text, nullable=False)
     before_text: Mapped[str] = mapped_column(Text, nullable=False)
     after_text: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class Guardrail(Base):
+    __tablename__ = "guardrails"
+    __table_args__ = (
+        UniqueConstraint("value_stream_id", name="guardrails_stream"),
+        CheckConstraint("kind IN ('budget', 'capacity')", name="guardrails_kind"),
+        CheckConstraint("amount >= 1", name="guardrails_amount"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    value_stream_id: Mapped[int] = mapped_column(ForeignKey("value_streams.id"), nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class Workshop(Base):
+    __tablename__ = "workshops"
+    __table_args__ = (
+        CheckConstraint("recommendation <> ''", name="workshops_recommendation"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    value_stream_id: Mapped[int] = mapped_column(ForeignKey("value_streams.id"), nullable=False)
+    recommendation: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class WorkshopParticipant(Base):
+    __tablename__ = "workshop_participants"
+    __table_args__ = (
+        UniqueConstraint("workshop_id", "person_id", name="workshop_participants_once"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id"), nullable=False)
+    person_id: Mapped[int] = mapped_column(ForeignKey("people.id"), nullable=False)
+
+
+class WorkshopAllocation(Base):
+    __tablename__ = "workshop_allocations"
+    __table_args__ = (
+        UniqueConstraint("workshop_id", "initiative_id", name="workshop_allocations_once"),
+        CheckConstraint("amount >= 1", name="workshop_allocations_amount"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id"), nullable=False)
+    initiative_id: Mapped[int] = mapped_column(ForeignKey("initiatives.id"), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)

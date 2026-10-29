@@ -45,6 +45,60 @@
     <label>Name <input name="name"></label>
     <button type="submit">Add goal</button>
   </form>
+  <h2>Guardrail</h2>
+  {% if guardrail %}
+    <p class="guardrail">{{ guardrail.kind }} {{ guardrail.amount }}</p>
+  {% endif %}
+  <form method="post" action="/guardrails">
+    <input type="hidden" name="value_stream_id" value="{{ stream.id }}">
+    <label>Kind
+      <select name="kind">
+        <option value="capacity"{% if guardrail and guardrail.kind == "capacity" %} selected{% endif %}>Capacity</option>
+        <option value="budget"{% if guardrail and guardrail.kind == "budget" %} selected{% endif %}>Budget</option>
+      </select>
+    </label>
+    <label>Most initiatives <input name="amount" inputmode="numeric" value="{{ guardrail.amount if guardrail else '' }}"></label>
+    <button type="submit">Save guardrail</button>
+  </form>
+  <h2>Workshop</h2>
+  {% for workshop in workshops %}
+    <article class="workshop">
+      <p class="recommendation">{{ workshop.recommendation }}</p>
+      <ul>
+        {% for person in workshop.participants %}
+          <li class="participant">{{ person.name }}</li>
+        {% endfor %}
+      </ul>
+      <ul>
+        {% for allocation in workshop.allocations %}
+          <li class="allocation">{{ allocation.name }} {{ allocation.amount }}</li>
+        {% endfor %}
+      </ul>
+    </article>
+  {% endfor %}
+  <form method="post" action="/workshops">
+    <input type="hidden" name="value_stream_id" value="{{ stream.id }}">
+    <fieldset class="checks">
+      <legend>Participants</legend>
+      {% for person in people %}
+        <label>
+          <input type="checkbox" name="person_id" value="{{ person.id }}">
+          {{ person.name }}
+        </label>
+      {% endfor %}
+    </fieldset>
+    <fieldset>
+      <legend>Allocations</legend>
+      {% for initiative in initiatives %}
+        <label>{{ initiative.name }}
+          <input type="hidden" name="initiative_id" value="{{ initiative.id }}">
+          <input name="amount" inputmode="numeric">
+        </label>
+      {% endfor %}
+    </fieldset>
+    <label>Recommendation <input name="recommendation"></label>
+    <button type="submit">Save workshop</button>
+  </form>
   <h2>Stream owner</h2>
   <table class="seats">
     <thead>

@@ -355,7 +355,8 @@ body.gate .theme-toggle {
 }
 
 table.members,
-table.seats {
+table.seats,
+table.investment {
   width: 100%;
   max-width: 40rem;
   margin-top: var(--space-100);
@@ -365,11 +366,17 @@ table.seats {
 table.members th,
 table.members td,
 table.seats th,
-table.seats td {
+table.seats td,
+table.investment th,
+table.investment td {
   padding: var(--space-100) var(--space-150);
   border-bottom: 1px solid var(--border);
   text-align: left;
   font-weight: 400;
+}
+
+table.investment {
+  max-width: 64rem;
 }
 
 table.members form {
@@ -396,6 +403,53 @@ nav[aria-label="Breadcrumb"] > * + *::before {
 nav[aria-label="Breadcrumb"] span {
   color: var(--text);
   font-weight: 500;
+}
+
+.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+form .checks {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+form .checks legend {
+  margin-bottom: var(--space-100);
+  color: var(--text-subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+form .checks label {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-100);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+form .checks input {
+  width: 1rem;
+  height: 1rem;
+}
+
+fieldset {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+fieldset legend {
+  margin-bottom: var(--space-100);
+  color: var(--text-subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .error {

@@ -323,6 +323,20 @@ class PolicyMoveRow(BaseModel):
     approved: int
 
 
+class WorkshopAllocationRow(BaseModel):
+    initiative_id: int
+    name: str
+    amount: int
+
+
+class WorkshopRow(BaseModel):
+    id: int
+    value_stream_id: int
+    recommendation: str
+    participants: list[NamedRef]
+    allocations: list[WorkshopAllocationRow]
+
+
 class EvidenceRow(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

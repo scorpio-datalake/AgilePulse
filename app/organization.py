@@ -18,6 +18,7 @@ from app.navigation import (
 )
 from app.schemas import (
     DeliveryGroupForm,
+    GuardrailForm,
     MembershipForm,
     NameForm,
     PersonCreateForm,
@@ -25,9 +26,17 @@ from app.schemas import (
     RoleForm,
     TeamForm,
     ValueStreamForm,
+    WorkshopForm,
 )
 
 NAME_REQUIRED = "A name is required."
+GUARDRAIL_NEEDS_STREAM = "A guardrail needs a value stream."
+GUARDRAIL_REFUSED = "That guardrail was refused."
+WORKSHOP_NEEDS_STREAM = "A workshop needs a value stream."
+WORKSHOP_REFUSED = "That workshop was refused."
+RECOMMENDATION_REQUIRED = "A recommendation is required."
+PERSON_NOT_IN_ORG = "That person is not in the organization."
+INITIATIVE_OTHER_STREAM = "That initiative is on another stream."
 STREAM_NEEDS_PORTFOLIO = "A value stream needs a portfolio."
 GROUP_NEEDS_STREAM = "A delivery group needs a value stream."
 TEAM_NEEDS_GROUP = "A team needs a delivery group."
@@ -122,7 +131,12 @@ def register_organization(app: FastAPI, templates: Jinja2Templates) -> None:
             portfolio_breadcrumb(portfolio),
             status_code,
             portfolio=portfolio,
-            streams=_keep(store, signed_in, "stream", store.list_value_streams(portfolio_id)),
+            streams=[
+                _stream_investment(store, stream)
+                for stream in _keep(
+                    store, signed_in, "stream", store.list_value_streams(portfolio_id)
+                )
+            ],
             can_create_stream=_is_admin(store, signed_in["id"]),
             error=error,
         )
@@ -156,6 +170,9 @@ def register_organization(app: FastAPI, templates: Jinja2Templates) -> None:
                 store.list_role_assignments(organization_id, value_stream_id=value_stream_id)
             ),
             goals=store.list_goals(value_stream_id),
+            guardrail=store.get_guardrail(value_stream_id),
+            initiatives=store.initiatives_on_stream(value_stream_id),
+            workshops=store.list_workshops(value_stream_id),
             error=error,
         )
 
@@ -431,6 +448,102 @@ def register_organization(app: FastAPI, templates: Jinja2Templates) -> None:
         ):
             raise HTTPException(status_code=404)
         return RedirectResponse(f"/value-streams/{value_stream_id}", status_code=303)
+
+    @app.post("/guardrails")
+    def post_guardrail(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        value_stream_id: Annotated[str, Form()] = "",
+        kind: Annotated[str, Form()] = "",
+        amount: Annotated[str, Form()] = "",
+    ):
+        signed_in = user(request, store)
+        if signed_in is None:
+            return sign_in()
+        parsed = _optional_int(value_stream_id)
+        blocked = _blocked(store, signed_in, edit=True, kind="stream", record_id=parsed or 0)
+        if blocked == RECORD_HIDDEN:
+            return refused(request, store, signed_in, blocked)
+        if blocked is not None and parsed is not None:
+            return stream_page(request, store, signed_in, parsed, blocked, 422)
+        if blocked is not None:
+            return refused(request, store, signed_in, blocked)
+        try:
+            form = GuardrailForm(value_stream_id=parsed, kind=kind, amount=amount)
+        except ValidationError as exc:
+            message = _guardrail_error(exc)
+            if parsed is not None and store.get_value_stream(
+                signed_in["organization_id"], parsed
+            ) is not None:
+                return stream_page(request, store, signed_in, parsed, message, 422)
+            return refused(request, store, signed_in, message)
+        if not store.save_guardrail(
+            signed_in["organization_id"], form.value_stream_id, form.kind, form.amount
+        ):
+            return refused(request, store, signed_in, GUARDRAIL_NEEDS_STREAM)
+        return RedirectResponse(f"/value-streams/{form.value_stream_id}", status_code=303)
+
+    @app.post("/workshops")
+    def post_workshop(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        value_stream_id: Annotated[str, Form()] = "",
+        recommendation: Annotated[str, Form()] = "",
+        person_id: Annotated[list[str], Form()] = [],
+        initiative_id: Annotated[list[str], Form()] = [],
+        amount: Annotated[list[str], Form()] = [],
+    ):
+        signed_in = user(request, store)
+        if signed_in is None:
+            return sign_in()
+        parsed = _optional_int(value_stream_id)
+        blocked = _blocked(store, signed_in, edit=True, kind="stream", record_id=parsed or 0)
+        if blocked == RECORD_HIDDEN:
+            return refused(request, store, signed_in, blocked)
+        if blocked is not None and parsed is not None:
+            return stream_page(request, store, signed_in, parsed, blocked, 422)
+        if blocked is not None:
+            return refused(request, store, signed_in, blocked)
+        people = _id_list(person_id)
+        allocations = _allocation_rows(initiative_id, amount)
+        try:
+            form = WorkshopForm(
+                value_stream_id=parsed,
+                person_ids=[] if people is None else people,
+                allocations=[] if allocations is None else allocations,
+                recommendation=recommendation,
+            )
+        except ValidationError as exc:
+            message = _workshop_error(exc, people is None, allocations is None)
+            if parsed is not None and store.get_value_stream(
+                signed_in["organization_id"], parsed
+            ) is not None:
+                return stream_page(request, store, signed_in, parsed, message, 422)
+            return refused(request, store, signed_in, message)
+        if people is None:
+            return stream_page(
+                request, store, signed_in, form.value_stream_id, PERSON_NOT_IN_ORG, 422
+            )
+        if allocations is None:
+            return stream_page(
+                request, store, signed_in, form.value_stream_id, WORKSHOP_REFUSED, 422
+            )
+        saved = store.save_workshop(
+            signed_in["organization_id"],
+            form.value_stream_id,
+            form.person_ids,
+            [item.model_dump() for item in form.allocations],
+            form.recommendation,
+        )
+        if saved == "stream":
+            return refused(request, store, signed_in, WORKSHOP_NEEDS_STREAM)
+        if saved == "person":
+            return stream_page(request, store, signed_in, form.value_stream_id, PERSON_NOT_IN_ORG, 422)
+        if saved == "initiative":
+            return stream_page(
+                request, store, signed_in, form.value_stream_id, INITIATIVE_OTHER_STREAM, 422
+            )
+        return RedirectResponse(f"/value-streams/{form.value_stream_id}", status_code=303)
 
     @app.post("/delivery-groups")
     def post_delivery_group(
@@ -890,6 +1003,67 @@ def register_organization(app: FastAPI, templates: Jinja2Templates) -> None:
 
     register_cycles(app, templates, group_page, user, sign_in, edit_blocked, _hidden)
     register_iterations(app, templates, team_page, user, sign_in, edit_blocked, _hidden)
+
+
+def _stream_investment(store, stream: dict) -> dict:
+    guardrail = store.get_guardrail(stream["id"])
+    load = store.open_initiative_count(stream["id"])
+    latest = store.latest_workshop(stream["id"])
+    return {
+        **stream,
+        "guardrail": guardrail,
+        "load": load,
+        "over": guardrail is not None and load > guardrail["amount"],
+        "recommendation": None if latest is None else latest["recommendation"],
+    }
+
+
+def _guardrail_error(exc: ValidationError) -> str:
+    for error in exc.errors():
+        if error["loc"] and error["loc"][-1] == "value_stream_id":
+            return GUARDRAIL_NEEDS_STREAM
+    return GUARDRAIL_REFUSED
+
+
+def _workshop_error(exc: ValidationError, bad_person: bool, bad_allocation: bool) -> str:
+    for error in exc.errors():
+        loc = error["loc"]
+        if loc and loc[-1] == "recommendation":
+            return RECOMMENDATION_REQUIRED
+        if loc and loc[-1] == "value_stream_id":
+            return WORKSHOP_NEEDS_STREAM
+    if bad_person:
+        return PERSON_NOT_IN_ORG
+    if bad_allocation:
+        return WORKSHOP_REFUSED
+    return WORKSHOP_REFUSED
+
+
+def _id_list(values: list[str]) -> list[int] | None:
+    parsed = []
+    for value in values:
+        text = value.strip()
+        if not text:
+            continue
+        if not text.isdigit() or int(text) < 1:
+            return None
+        parsed.append(int(text))
+    return parsed
+
+
+def _allocation_rows(initiative_ids: list[str], amounts: list[str]) -> list[dict] | None:
+    if len(initiative_ids) != len(amounts):
+        return None
+    rows = []
+    for raw_id, raw_amount in zip(initiative_ids, amounts):
+        initiative_id = raw_id.strip()
+        amount = raw_amount.strip()
+        if amount == "":
+            continue
+        if initiative_id == "":
+            return None
+        rows.append({"initiative_id": initiative_id, "amount": amount})
+    return rows
 
 
 def _stage_board(rows: list[dict]) -> dict[str, list[dict]]:

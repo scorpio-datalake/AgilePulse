@@ -22,6 +22,7 @@ from app.models import (
     Feature,
     Goal,
     GroupDecision,
+    Guardrail,
     Initiative,
     Iteration,
     IterationStory,
@@ -48,6 +49,9 @@ from app.models import (
     User,
     ValueStream,
     WipException,
+    Workshop,
+    WorkshopAllocation,
+    WorkshopParticipant,
 )
 from app.passwords import hash_password
 from app.rows import (
@@ -86,6 +90,7 @@ from app.rows import (
     SyncNoteRow,
     TeamChoice,
     VoteRow,
+    WorkshopRow,
     dump,
     dump_all,
     dump_maps,
@@ -96,9 +101,10 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin"
 ADMIN_DISPLAY_NAME = "Admin"
 ORG_NAME = "Local"
-SCHEMA_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+SCHEMA_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 
 PolicyRow = row_model(Policy, "PolicyRow")
+GuardrailRow = row_model(Guardrail, "GuardrailRow")
 
 UserRow = row_model(User, "UserRow")
 OrganizationRow = row_model(Organization, "OrganizationRow")
@@ -2401,6 +2407,174 @@ def set_criteria(
             latency_target=latency_target,
         ),
     )
+
+
+def get_guardrail(session: Session, value_stream_id: int) -> dict | None:
+    return dump(
+        session.scalar(select(Guardrail).where(Guardrail.value_stream_id == value_stream_id)),
+        GuardrailRow,
+    )
+
+
+def save_guardrail(
+    session: Session,
+    organization_id: int,
+    value_stream_id: int,
+    kind: str,
+    amount: int,
+) -> bool:
+    if get_value_stream(session, organization_id, value_stream_id) is None:
+        return False
+    existing = session.scalar(select(Guardrail).where(Guardrail.value_stream_id == value_stream_id))
+    if existing is None:
+        session.add(
+            Guardrail(
+                organization_id=organization_id,
+                value_stream_id=value_stream_id,
+                kind=kind,
+                amount=amount,
+            )
+        )
+    else:
+        existing.kind = kind
+        existing.amount = amount
+    session.commit()
+    return True
+
+
+def initiatives_on_stream(session: Session, value_stream_id: int) -> list[dict]:
+    return dump_all(
+        session.scalars(
+            select(Initiative)
+            .join(Goal, Initiative.goal_id == Goal.id)
+            .where(Goal.value_stream_id == value_stream_id)
+            .order_by(Initiative.name, Initiative.id)
+        ).all(),
+        InitiativeRow,
+    )
+
+
+def open_initiative_count(session: Session, value_stream_id: int) -> int:
+    count = session.scalar(
+        select(func.count())
+        .select_from(Initiative)
+        .join(Goal, Initiative.goal_id == Goal.id)
+        .where(Goal.value_stream_id == value_stream_id, Initiative.state != "Done")
+    )
+    return int(count or 0)
+
+
+def list_workshops(session: Session, value_stream_id: int) -> list[dict]:
+    workshops = session.scalars(
+        select(Workshop).where(Workshop.value_stream_id == value_stream_id).order_by(Workshop.id)
+    ).all()
+    return [_workshop_view(session, workshop) for workshop in workshops]
+
+
+def latest_workshop(session: Session, value_stream_id: int) -> dict | None:
+    workshop = session.scalar(
+        select(Workshop)
+        .where(Workshop.value_stream_id == value_stream_id)
+        .order_by(Workshop.id.desc())
+    )
+    if workshop is None:
+        return None
+    return _workshop_view(session, workshop)
+
+
+def save_workshop(
+    session: Session,
+    organization_id: int,
+    value_stream_id: int,
+    person_ids: list[int],
+    allocations: list[dict],
+    recommendation: str,
+) -> str | None:
+    if get_value_stream(session, organization_id, value_stream_id) is None:
+        return "stream"
+    seen_people: list[int] = []
+    for person_id in person_ids:
+        if person_id in seen_people:
+            continue
+        person = session.get(Person, person_id)
+        if person is None or person.organization_id != organization_id:
+            return "person"
+        seen_people.append(person_id)
+    seen_initiatives: set[int] = set()
+    checked: list[tuple[int, int]] = []
+    for item in allocations:
+        initiative_id = int(item["initiative_id"])
+        if initiative_id in seen_initiatives:
+            return "initiative"
+        initiative = session.get(Initiative, initiative_id)
+        goal = None if initiative is None else session.get(Goal, initiative.goal_id)
+        if (
+            initiative is None
+            or initiative.organization_id != organization_id
+            or goal is None
+            or goal.value_stream_id != value_stream_id
+        ):
+            return "initiative"
+        seen_initiatives.add(initiative_id)
+        checked.append((initiative_id, int(item["amount"])))
+    workshop = Workshop(
+        organization_id=organization_id,
+        value_stream_id=value_stream_id,
+        recommendation=recommendation,
+    )
+    session.add(workshop)
+    session.flush()
+    for person_id in seen_people:
+        session.add(
+            WorkshopParticipant(
+                organization_id=organization_id,
+                workshop_id=workshop.id,
+                person_id=person_id,
+            )
+        )
+    for initiative_id, amount in checked:
+        session.add(
+            WorkshopAllocation(
+                organization_id=organization_id,
+                workshop_id=workshop.id,
+                initiative_id=initiative_id,
+                amount=amount,
+            )
+        )
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return "initiative"
+    return None
+
+
+def _workshop_view(session: Session, workshop: Workshop) -> dict:
+    participants = session.execute(
+        select(Person.id, Person.name)
+        .join(WorkshopParticipant, WorkshopParticipant.person_id == Person.id)
+        .where(WorkshopParticipant.workshop_id == workshop.id)
+        .order_by(Person.name, Person.id)
+    ).mappings()
+    allocations = session.execute(
+        select(
+            Initiative.id.label("initiative_id"),
+            Initiative.name,
+            WorkshopAllocation.amount,
+        )
+        .join(WorkshopAllocation, WorkshopAllocation.initiative_id == Initiative.id)
+        .where(WorkshopAllocation.workshop_id == workshop.id)
+        .order_by(Initiative.name, Initiative.id)
+    ).mappings()
+    return WorkshopRow.model_validate(
+        {
+            "id": workshop.id,
+            "value_stream_id": workshop.value_stream_id,
+            "recommendation": workshop.recommendation,
+            "participants": list(participants),
+            "allocations": list(allocations),
+        }
+    ).model_dump()
 
 
 def _groups_for_work(session: Session, target_kind: str, target_id: int) -> list[int]:

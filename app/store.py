@@ -160,6 +160,13 @@ class Database(Protocol):
     def list_evidence(self, target_kind: str, target_id: int) -> list[dict]: ...
     def add_evidence(self, organization_id: int, target_kind: str, target_id: int, action: str, actor_kind: str, actor_name: str, happened_at: str, before_text: str, after_text: str) -> None: ...
     def set_criteria(self, organization_id: int, target_kind: str, target_id: int, measure_name: str, threshold: str, dataset_label: str, latency_target: str) -> bool: ...
+    def get_guardrail(self, value_stream_id: int) -> dict | None: ...
+    def save_guardrail(self, organization_id: int, value_stream_id: int, kind: str, amount: int) -> bool: ...
+    def initiatives_on_stream(self, value_stream_id: int) -> list[dict]: ...
+    def open_initiative_count(self, value_stream_id: int) -> int: ...
+    def list_workshops(self, value_stream_id: int) -> list[dict]: ...
+    def latest_workshop(self, value_stream_id: int) -> dict | None: ...
+    def save_workshop(self, organization_id: int, value_stream_id: int, person_ids: list[int], allocations: list[dict], recommendation: str) -> str | None: ...
 
 
 class SqlStore:
@@ -596,6 +603,27 @@ class SqlStore:
 
     def set_criteria(self, organization_id: int, target_kind: str, target_id: int, measure_name: str, threshold: str, dataset_label: str, latency_target: str) -> bool:
         return database.set_criteria(self._session, organization_id, target_kind, target_id, measure_name, threshold, dataset_label, latency_target)
+
+    def get_guardrail(self, value_stream_id: int) -> dict | None:
+        return database.get_guardrail(self._session, value_stream_id)
+
+    def save_guardrail(self, organization_id: int, value_stream_id: int, kind: str, amount: int) -> bool:
+        return database.save_guardrail(self._session, organization_id, value_stream_id, kind, amount)
+
+    def initiatives_on_stream(self, value_stream_id: int) -> list[dict]:
+        return database.initiatives_on_stream(self._session, value_stream_id)
+
+    def open_initiative_count(self, value_stream_id: int) -> int:
+        return database.open_initiative_count(self._session, value_stream_id)
+
+    def list_workshops(self, value_stream_id: int) -> list[dict]:
+        return database.list_workshops(self._session, value_stream_id)
+
+    def latest_workshop(self, value_stream_id: int) -> dict | None:
+        return database.latest_workshop(self._session, value_stream_id)
+
+    def save_workshop(self, organization_id: int, value_stream_id: int, person_ids: list[int], allocations: list[dict], recommendation: str) -> str | None:
+        return database.save_workshop(self._session, organization_id, value_stream_id, person_ids, allocations, recommendation)
 
 
 @contextmanager
