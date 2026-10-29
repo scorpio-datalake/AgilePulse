@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from typing import Literal
 
@@ -120,6 +121,10 @@ class FeatureForm(NameForm):
 class StoryForm(NameForm):
     feature_id: int = Field(ge=1)
     kind: WorkKind
+
+
+class StoryFeatureForm(BaseModel):
+    feature_id: int = Field(ge=1)
 
 
 class PriorityForm(BaseModel):
@@ -338,6 +343,30 @@ class IterationForm(BaseModel):
         if self.ends_on < self.starts_on:
             raise ValueError("order")
         return self
+
+
+class BoardMoveForm(BaseModel):
+    story_id: int = Field(ge=1)
+    status_id: int = Field(ge=1)
+
+
+class BoardStatusForm(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=40)
+    color: str
+    person_id: int = Field(ge=1)
+
+    @field_validator("color")
+    @classmethod
+    def hex_color(cls, value: str) -> str:
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+            raise ValueError("color")
+        return value.lower()
+
+
+class BoardStatusUpdateForm(BoardStatusForm):
+    position: int = Field(ge=1)
 
 
 class BacklogAddForm(BaseModel):

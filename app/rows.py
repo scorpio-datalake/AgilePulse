@@ -239,6 +239,17 @@ class IterationBoardRow(BaseModel):
     estimate_value: int | None = None
     position: int
     accepted: int
+    board_status_id: int | None = None
+    board_rank: int = 0
+
+
+class BoardStatusRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    color: str
+    position: int
 
 
 class ExceptionRow(BaseModel):

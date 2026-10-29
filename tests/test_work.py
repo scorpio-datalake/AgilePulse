@@ -226,7 +226,21 @@ def test_work_model_links_and_estimates(tmp_path: Path):
         )
         feature = client.get(f"/features/{feature_id}")
         assert "Show the next bin" in feature.text
+        assert "New story" in feature.text
         assert f'href="/initiatives/{initiative_id}"' in feature.text
+        aisle_id = feature.text.split(">Aisle map<", 1)[0].rsplit('value="', 1)[-1].split('"', 1)[0]
+        moved = client.post(
+            f"/stories/{story_id}/feature",
+            data={"feature_id": aisle_id},
+            follow_redirects=True,
+        )
+        assert "Show the next bin" in moved.text
+        assert "Show the next bin" not in client.get(f"/features/{feature_id}").text
+        client.post(
+            f"/stories/{story_id}/feature",
+            data={"feature_id": feature_id},
+            follow_redirects=False,
+        )
         story_page = client.get(f"/stories/{story_id}")
         assert f'href="/features/{feature_id}"' in story_page.text
         assert f'href="/initiatives/{initiative_id}"' in story_page.text

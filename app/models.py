@@ -473,6 +473,20 @@ class Iteration(Base):
     ends_on: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class BoardStatus(Base):
+    __tablename__ = "board_statuses"
+    __table_args__ = (
+        UniqueConstraint("team_id", "name", name="board_statuses_team_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    color: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class IterationStory(Base):
     __tablename__ = "iteration_stories"
 
@@ -482,6 +496,8 @@ class IterationStory(Base):
     story_id: Mapped[int] = mapped_column(ForeignKey("stories.id"), nullable=False, unique=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     accepted: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    board_status_id: Mapped[int | None] = mapped_column(ForeignKey("board_statuses.id"))
+    board_rank: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
 
 
 class WipException(Base):

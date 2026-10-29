@@ -26,6 +26,7 @@ from app.schemas import (
     NameForm,
     PriorityForm,
     SizingForm,
+    StoryFeatureForm,
     StoryForm,
 )
 from app.store import Database, get_store
@@ -171,7 +172,7 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
             error=error,
         )
 
-    def feature_page(request, store, signed_in, feature_id: int, error, status_code=200):
+    def feature_page(request, store, signed_in, feature_id: int, error, status_code=200, tab=None):
         organization_id = signed_in["organization_id"]
         feature = store.get_feature(organization_id, feature_id)
         if feature is None:
@@ -182,6 +183,8 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
         feature["kind_label"] = KIND_LABELS[feature["kind"]]
         feature["delay_cost"] = with_delay_cost([feature])[0]["delay_cost"]
         path = stage_context(store, "feature", feature)
+        if tab not in {"stories", "feature", "path"}:
+            tab = "path" if error else "stories"
         return render(
             request,
             "feature.html",
@@ -193,11 +196,13 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
             status_code,
             feature=feature,
             stories=_kinds(store.list_stories(feature_id)),
+            feature_choices=store.list_features(feature["initiative_id"]),
             history=path["history"],
             done_items=path["done_items"],
             people=path["people"],
             stages=path["stages"],
             blocks=path["blocks"],
+            tab=tab,
             error=error,
         )
 
@@ -460,11 +465,11 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
         if feature is None:
             raise HTTPException(status_code=404)
         if edit_blocked(store, signed_in) is not None:
-            return feature_page(request, store, signed_in, feature_id, ACTION_REFUSED, 422)
+            return feature_page(request, store, signed_in, feature_id, ACTION_REFUSED, 422, tab="feature")
         try:
             form = FeatureForm(name=name, initiative_id=feature["initiative_id"], kind=kind)
         except ValidationError as exc:
-            return feature_page(request, store, signed_in, feature_id, _name_or_kind(exc), 422)
+            return feature_page(request, store, signed_in, feature_id, _name_or_kind(exc), 422, tab="feature")
         if not store.update_feature(
             signed_in["organization_id"], feature_id, form.name, form.kind
         ):
@@ -492,7 +497,7 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
         if store.get_feature(signed_in["organization_id"], feature_id) is None:
             raise HTTPException(status_code=404)
         if edit_blocked(store, signed_in) is not None:
-            return feature_page(request, store, signed_in, feature_id, ACTION_REFUSED, 422)
+            return feature_page(request, store, signed_in, feature_id, ACTION_REFUSED, 422, tab="feature")
         try:
             form = PriorityForm(
                 value_sooner=_optional_int(value_sooner, allow_zero=True),
@@ -501,7 +506,7 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
                 economic_size=_optional_int(economic_size, allow_zero=True),
             )
         except ValidationError:
-            return feature_page(request, store, signed_in, feature_id, PRIORITY_REFUSED, 422)
+            return feature_page(request, store, signed_in, feature_id, PRIORITY_REFUSED, 422, tab="feature")
         if not store.set_feature_priority(
             signed_in["organization_id"],
             feature_id,
@@ -531,17 +536,40 @@ def register_work(app: FastAPI, templates: Jinja2Templates) -> None:
         if parent is None or hidden_stream(store, signed_in, parent) is not None:
             return refused(request, store, signed_in, RECORD_HIDDEN)
         if edit_blocked(store, signed_in) is not None:
-            return feature_page(request, store, signed_in, parsed, ACTION_REFUSED, 422)
+            return feature_page(request, store, signed_in, parsed, ACTION_REFUSED, 422, tab="stories")
         try:
             form = StoryForm(name=name, feature_id=parsed, kind=kind)
         except ValidationError as exc:
-            return feature_page(request, store, signed_in, parsed, _name_or_kind(exc), 422)
+            return feature_page(request, store, signed_in, parsed, _name_or_kind(exc), 422, tab="stories")
         created = store.create_story(
             signed_in["organization_id"], form.feature_id, form.name, form.kind
         )
         if created is None:
             return refused(request, store, signed_in, STORY_NEEDS_FEATURE)
         return RedirectResponse(f"/stories/{created}", status_code=303)
+
+    @app.post("/stories/{story_id}/feature")
+    def post_story_feature(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        story_id: int,
+        feature_id: Annotated[str, Form()] = "",
+    ):
+        signed_in = signed_in_user(request, store)
+        if signed_in is None:
+            return sign_in()
+        story = store.get_story(signed_in["organization_id"], story_id)
+        if story is None:
+            raise HTTPException(status_code=404)
+        if edit_blocked(store, signed_in) is not None:
+            return story_page(request, store, signed_in, story_id, ACTION_REFUSED, 422)
+        try:
+            form = StoryFeatureForm(feature_id=int(feature_id))
+        except (ValidationError, ValueError):
+            return feature_page(request, store, signed_in, story["feature_id"], STORY_NEEDS_FEATURE, 422, tab="stories")
+        if not store.set_story_feature(signed_in["organization_id"], story_id, form.feature_id):
+            return feature_page(request, store, signed_in, story["feature_id"], STORY_NEEDS_FEATURE, 422, tab="stories")
+        return RedirectResponse(f"/features/{form.feature_id}", status_code=303)
 
     @app.get("/stories/{story_id}")
     def get_story_page(

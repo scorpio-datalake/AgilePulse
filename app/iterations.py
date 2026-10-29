@@ -12,6 +12,9 @@ from app.schemas import (
     AcceptForm,
     BacklogAddForm,
     BacklogOrderForm,
+    BoardMoveForm,
+    BoardStatusForm,
+    BoardStatusUpdateForm,
     CrossTeamForm,
     IterationForm,
     PromoteForm,
@@ -32,6 +35,18 @@ NEEDS_OWNER = "That action needs the product owner."
 NEEDS_MASTER = "That action needs the scrum master."
 STORY_NOT_ON_TEAM = "That story is not on this team."
 LIMIT_REFUSED = "That limit was refused."
+NEEDS_BOARD_EDITOR = "That action needs the product manager, product owner, or scrum master."
+COLUMN_REFUSED = "That column was refused."
+COLUMN_EXISTS = "That column name is already on the board."
+COLUMN_IN_USE = "Move the stories out of that column first."
+COLUMN_LAST = "The board needs a column."
+COLOR_REFUSED = "That color was refused."
+COLUMN_ERRORS = {
+    "duplicate": COLUMN_EXISTS,
+    "missing": COLUMN_REFUSED,
+    "in_use": COLUMN_IN_USE,
+    "last": COLUMN_LAST,
+}
 
 
 def _optional_int(value: str) -> int | None:
@@ -57,6 +72,28 @@ def _holds(store, organization_id, person_id, role, team_id) -> bool:
     if held is None or held["role"] != role:
         return False
     return store.person_on_team(person_id, team_id)
+
+
+def _board_editor(store, organization_id, person_id, team: dict) -> bool:
+    held = store.person_role(organization_id, person_id)
+    if held is None:
+        return False
+    if held["role"] == "product_manager" and held["delivery_group_id"] == team["delivery_group_id"]:
+        return True
+    if held["role"] in {"product_owner", "scrum_master"}:
+        return store.person_on_team(person_id, team["id"])
+    return False
+
+
+def _sprint_columns(statuses: list[dict], stories: list[dict]) -> dict[int, list[dict]]:
+    columns = {status["id"]: [] for status in statuses}
+    if not statuses:
+        return columns
+    first_id = statuses[0]["id"]
+    for story in stories:
+        column_id = story["board_status_id"] if story["board_status_id"] in columns else first_id
+        columns[column_id].append(story)
+    return columns
 
 
 def _board(rows: list[dict]) -> dict[str, list[dict]]:
@@ -136,6 +173,9 @@ def register_iterations(
                 status_code=422,
             )
         team = store.get_team(organization_id, iteration["team_id"])
+        statuses = store.list_board_statuses(organization_id, team["id"])
+        if statuses:
+            store.place_open_cards(iteration_id, statuses[0]["id"])
         stories = store.list_iteration_board(iteration_id)
         for story in stories:
             story["stage_group"] = story["stage"]
@@ -153,6 +193,8 @@ def register_iterations(
             stories=stories,
             board=_board(stories),
             stages=STAGES,
+            statuses=statuses,
+            sprint=_sprint_columns(statuses, stories),
             completed_size=completed,
             available=available,
             people=store.list_people(organization_id),
@@ -259,6 +301,141 @@ def register_iterations(
             signed_in["organization_id"], iteration_id, form.story_id
         ):
             return iteration_page(request, store, signed_in, iteration_id, STORY_NOT_ON_TEAM, 422)
+        return RedirectResponse(f"/iterations/{iteration_id}", status_code=303)
+
+    @app.post("/iterations/{iteration_id}/board")
+    def post_board_move(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        iteration_id: int,
+        story_id: Annotated[str, Form()] = "",
+        status_id: Annotated[str, Form()] = "",
+        before_story_id: Annotated[str, Form()] = "",
+    ):
+        found, response = editable(request, store, iteration_id)
+        if response is not None:
+            return response
+        signed_in, _iteration = found
+        try:
+            form = BoardMoveForm(story_id=int(story_id), status_id=int(status_id))
+        except (ValidationError, ValueError):
+            return iteration_page(request, store, signed_in, iteration_id, COLUMN_REFUSED, 422)
+        before = None
+        if before_story_id.strip():
+            try:
+                before = int(before_story_id)
+            except ValueError:
+                return iteration_page(request, store, signed_in, iteration_id, COLUMN_REFUSED, 422)
+            if before < 1:
+                return iteration_page(request, store, signed_in, iteration_id, COLUMN_REFUSED, 422)
+        if not store.move_board_card(iteration_id, form.story_id, form.status_id, before):
+            return iteration_page(request, store, signed_in, iteration_id, COLUMN_REFUSED, 422)
+        return RedirectResponse(f"/iterations/{iteration_id}", status_code=303)
+
+    def _column_form_error(exc: ValidationError) -> str:
+        for error in exc.errors():
+            loc = error["loc"][-1] if error["loc"] else ""
+            if loc == "color" or error.get("type") == "value_error":
+                if "color" in error.get("msg", "") or loc == "color":
+                    return COLOR_REFUSED
+            if loc == "name":
+                return NAME_REQUIRED
+        return COLUMN_REFUSED
+
+    def _edited_column(request, store, iteration_id):
+        found, response = editable(request, store, iteration_id)
+        if response is not None:
+            return None, response
+        signed_in, iteration = found
+        team = store.get_team(signed_in["organization_id"], iteration["team_id"])
+        return (signed_in, iteration, team), None
+
+    @app.post("/iterations/{iteration_id}/columns")
+    def post_column(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        iteration_id: int,
+        name: Annotated[str, Form()] = "",
+        color: Annotated[str, Form()] = "",
+        person_id: Annotated[str, Form()] = "",
+    ):
+        found, response = _edited_column(request, store, iteration_id)
+        if response is not None:
+            return response
+        signed_in, iteration, team = found
+        try:
+            form = BoardStatusForm(name=name, color=color, person_id=int(person_id))
+        except (ValidationError, ValueError) as exc:
+            message = _column_form_error(exc) if isinstance(exc, ValidationError) else COLUMN_REFUSED
+            return iteration_page(request, store, signed_in, iteration_id, message, 422)
+        if not _board_editor(store, signed_in["organization_id"], form.person_id, team):
+            return iteration_page(request, store, signed_in, iteration_id, NEEDS_BOARD_EDITOR, 422)
+        result = store.add_board_status(
+            signed_in["organization_id"], iteration["team_id"], form.name, form.color
+        )
+        if result is not None:
+            return iteration_page(request, store, signed_in, iteration_id, COLUMN_ERRORS[result], 422)
+        return RedirectResponse(f"/iterations/{iteration_id}", status_code=303)
+
+    @app.post("/iterations/{iteration_id}/columns/{status_id}")
+    def post_column_update(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        iteration_id: int,
+        status_id: int,
+        name: Annotated[str, Form()] = "",
+        color: Annotated[str, Form()] = "",
+        position: Annotated[str, Form()] = "",
+        person_id: Annotated[str, Form()] = "",
+    ):
+        found, response = _edited_column(request, store, iteration_id)
+        if response is not None:
+            return response
+        signed_in, iteration, team = found
+        try:
+            form = BoardStatusUpdateForm(
+                name=name, color=color, position=int(position), person_id=int(person_id)
+            )
+        except (ValidationError, ValueError) as exc:
+            message = _column_form_error(exc) if isinstance(exc, ValidationError) else COLUMN_REFUSED
+            return iteration_page(request, store, signed_in, iteration_id, message, 422)
+        if not _board_editor(store, signed_in["organization_id"], form.person_id, team):
+            return iteration_page(request, store, signed_in, iteration_id, NEEDS_BOARD_EDITOR, 422)
+        result = store.update_board_status(
+            signed_in["organization_id"],
+            iteration["team_id"],
+            status_id,
+            form.name,
+            form.color,
+            form.position,
+        )
+        if result is not None:
+            return iteration_page(request, store, signed_in, iteration_id, COLUMN_ERRORS[result], 422)
+        return RedirectResponse(f"/iterations/{iteration_id}", status_code=303)
+
+    @app.post("/iterations/{iteration_id}/columns/{status_id}/delete")
+    def post_column_delete(
+        request: Request,
+        store: Annotated[Database, Depends(get_store)],
+        iteration_id: int,
+        status_id: int,
+        person_id: Annotated[str, Form()] = "",
+    ):
+        found, response = _edited_column(request, store, iteration_id)
+        if response is not None:
+            return response
+        signed_in, iteration, team = found
+        try:
+            editor_id = int(person_id)
+        except ValueError:
+            return iteration_page(request, store, signed_in, iteration_id, NEEDS_BOARD_EDITOR, 422)
+        if not _board_editor(store, signed_in["organization_id"], editor_id, team):
+            return iteration_page(request, store, signed_in, iteration_id, NEEDS_BOARD_EDITOR, 422)
+        result = store.delete_board_status(
+            signed_in["organization_id"], iteration["team_id"], status_id
+        )
+        if result is not None:
+            return iteration_page(request, store, signed_in, iteration_id, COLUMN_ERRORS[result], 422)
         return RedirectResponse(f"/iterations/{iteration_id}", status_code=303)
 
     @app.post("/iterations/{iteration_id}/order")

@@ -1,62 +1,106 @@
 {% extends "base.html" %}
 {% block body %}
-  <header class="record-header">
-    <p class="record-type">Feature</p>
-    {% include "breadcrumb.html" %}
-    <h1>{{ feature.name }}</h1>
-    <p>{{ feature.kind_label }}</p>
-  </header>
-  {% if error %}
-    <p class="error">{{ error }}</p>
-  {% endif %}
-  <form method="post" action="/features/{{ feature.id }}">
-    <label>Name <input name="name" value="{{ feature.name }}"></label>
-    <label>Kind
-      <select name="kind">
-        {% for value, label in [("feature", "Feature"), ("platform", "Platform"), ("prototype", "Prototype"), ("experiment", "Experiment")] %}
-          <option value="{{ value }}"{% if feature.kind == value %} selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <button type="submit">Save feature</button>
-  </form>
-  <h2>Priority</h2>
-  <form method="post" action="/features/{{ feature.id }}/priority">
-    <label>Value of doing it sooner <input name="value_sooner" value="{{ feature.value_sooner if feature.value_sooner is not none else '' }}"></label>
-    <label>Urgency <input name="urgency" value="{{ feature.urgency if feature.urgency is not none else '' }}"></label>
-    <label>Risk or opportunity <input name="risk" value="{{ feature.risk if feature.risk is not none else '' }}"></label>
-    <label>Size <input name="economic_size" value="{{ feature.economic_size if feature.economic_size is not none else '' }}"></label>
-    <button type="submit">Save priority</button>
-  </form>
-  <p class="delay-cost">{{ feature.delay_cost if feature.delay_cost is not none else "" }}</p>
-  {% set work = feature %}
-  {% set work_root = "features" %}
-  {% include "stage_panel.html" %}
-  <h2>Stories</h2>
-  {% if stories %}
-    <ul>
-      {% for story in stories %}
-        <li>
-          <a href="/stories/{{ story.id }}">{{ story.name }}</a>
-          <span>{{ story.kind_label }}</span>
-          {% if story.estimate_value is not none %}
-            <span>{{ story.estimate_value }}</span>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-  <form method="post" action="/stories">
-    <input type="hidden" name="feature_id" value="{{ feature.id }}">
-    <label>Name <input name="name"></label>
-    <label>Kind
-      <select name="kind">
-        <option value="feature">Feature</option>
-        <option value="platform">Platform</option>
-        <option value="prototype">Prototype</option>
-        <option value="experiment">Experiment</option>
-      </select>
-    </label>
-    <button class="primary" type="submit">Add story</button>
-  </form>
+  <div x-data="{ tab: '{{ tab }}' }">
+    <header class="record-header">
+      <p class="record-type">Feature</p>
+      {% include "breadcrumb.html" %}
+      <h1>{{ feature.name }}</h1>
+      <p>{{ feature.kind_label }}</p>
+      <nav class="view-tabs" aria-label="Feature views">
+        <button type="button" @click="tab = 'stories'" :aria-current="tab === 'stories' ? 'page' : false">Stories</button>
+        <button type="button" @click="tab = 'feature'" :aria-current="tab === 'feature' ? 'page' : false">Feature</button>
+        <button type="button" @click="tab = 'path'" :aria-current="tab === 'path' ? 'page' : false">Path</button>
+      </nav>
+    </header>
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+    <div class="stack" x-show="tab === 'stories'" {% if tab != 'stories' %}x-cloak{% endif %}>
+      <section class="card">
+        <h2>New story</h2>
+        <p>A story belongs to one feature. This feature is selected. Choose another feature on this initiative if the story belongs there instead.</p>
+        <form method="post" action="/stories">
+          <label>Feature
+            <select name="feature_id">
+              {% for choice in feature_choices %}
+                <option value="{{ choice.id }}"{% if choice.id == feature.id %} selected{% endif %}>{{ choice.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Name <input name="name"></label>
+          <label>Kind
+            <select name="kind">
+              {% for value, label in [("feature", "Feature"), ("platform", "Platform"), ("prototype", "Prototype"), ("experiment", "Experiment")] %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button class="primary" type="submit">Add story</button>
+        </form>
+      </section>
+      <section class="card">
+        <div class="card-title">
+          <h2>Stories on this feature</h2>
+          <span class="count">{{ stories|length }}</span>
+        </div>
+        {% if stories %}
+          <ul class="story-list">
+            {% for story in stories %}
+              <li>
+                <a href="/stories/{{ story.id }}">{{ story.name }}</a>
+                <span>{{ story.kind_label }}</span>
+                {% if story.estimate_value is not none %}
+                  <span>{{ story.estimate_value }}</span>
+                {% endif %}
+                <form method="post" action="/stories/{{ story.id }}/feature">
+                  <label>Feature
+                    <select name="feature_id">
+                      {% for choice in feature_choices %}
+                        <option value="{{ choice.id }}"{% if choice.id == feature.id %} selected{% endif %}>{{ choice.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <button type="submit">Assign feature</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No stories yet. Add one above.</p>
+        {% endif %}
+      </section>
+    </div>
+    <div class="stack" x-show="tab === 'feature'" {% if tab != 'feature' %}x-cloak{% endif %}>
+      <section class="card">
+        <h2>This feature</h2>
+        <form method="post" action="/features/{{ feature.id }}">
+          <label>Name <input name="name" value="{{ feature.name }}"></label>
+          <label>Kind
+            <select name="kind">
+              {% for value, label in [("feature", "Feature"), ("platform", "Platform"), ("prototype", "Prototype"), ("experiment", "Experiment")] %}
+                <option value="{{ value }}"{% if feature.kind == value %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit">Save feature</button>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Priority</h2>
+        <form method="post" action="/features/{{ feature.id }}/priority">
+          <label>Value of doing it sooner <input name="value_sooner" value="{{ feature.value_sooner if feature.value_sooner is not none else '' }}"></label>
+          <label>Urgency <input name="urgency" value="{{ feature.urgency if feature.urgency is not none else '' }}"></label>
+          <label>Risk or opportunity <input name="risk" value="{{ feature.risk if feature.risk is not none else '' }}"></label>
+          <label>Size <input name="economic_size" value="{{ feature.economic_size if feature.economic_size is not none else '' }}"></label>
+          <button type="submit">Save priority</button>
+        </form>
+        <p class="delay-cost">{{ feature.delay_cost if feature.delay_cost is not none else "" }}</p>
+      </section>
+    </div>
+    <div x-show="tab === 'path'" {% if tab != 'path' %}x-cloak{% endif %}>
+      {% set work = feature %}
+      {% set work_root = "features" %}
+      {% include "stage_panel.html" %}
+    </div>
+  </div>
 {% endblock %}

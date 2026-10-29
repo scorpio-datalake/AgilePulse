@@ -683,6 +683,175 @@ table.members button.danger:hover {
   border-bottom: 1px solid var(--border);
 }
 
+.sprint-note {
+  margin-top: var(--space-100);
+  color: var(--text-subtle);
+}
+
+.sprint-board {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-100);
+  margin-top: var(--space-150);
+  overflow-x: auto;
+  padding-bottom: var(--space-100);
+}
+
+.sprint-column {
+  display: flex;
+  flex: 0 0 17.5rem;
+  flex-direction: column;
+  min-height: 16rem;
+  border-radius: var(--radius-large);
+  background: var(--neutral);
+}
+
+.sprint-column.is-drop {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.sprint-column header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-100) var(--space-150);
+  border-bottom: 3px solid var(--text-subtlest);
+  border-radius: var(--radius-large) var(--radius-large) 0 0;
+  background: var(--surface);
+}
+
+.sprint-column header h3 {
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.sprint-cards {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-100);
+  padding: var(--space-100);
+}
+
+.story-card {
+  padding: var(--space-100) var(--space-150);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--surface);
+  box-shadow: 0 1px 1px #0b120e14;
+  cursor: grab;
+}
+
+.story-card:active {
+  cursor: grabbing;
+}
+
+.story-card-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-100);
+}
+
+.story-card-title a {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.story-card-title a:hover {
+  color: var(--link);
+}
+
+.points {
+  flex: none;
+  min-width: 1.25rem;
+  padding: 0 var(--space-050);
+  border-radius: var(--radius-small);
+  background: var(--selected);
+  color: var(--link);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+}
+
+.story-card-meta {
+  display: flex;
+  gap: var(--space-100);
+  margin-top: var(--space-050);
+  color: var(--text-subtlest);
+  font-size: 0.75rem;
+}
+
+.story-card form,
+.column-editor form {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  max-width: none;
+}
+
+.story-card form {
+  margin-top: var(--space-100);
+  cursor: auto;
+}
+
+.story-card form label,
+.column-editor form label {
+  width: auto;
+  min-width: 7rem;
+}
+
+.column-editor {
+  margin-top: var(--space-200);
+}
+
+.column-editor > p {
+  margin-top: var(--space-100);
+  color: var(--text-subtle);
+}
+
+.story-list {
+  margin: var(--space-150) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-list li {
+  padding: var(--space-150) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.story-list li:last-child {
+  border-bottom: 0;
+}
+
+.story-list form {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  max-width: none;
+}
+
+.story-list form label {
+  width: auto;
+  min-width: 12rem;
+}
+
+.stack > .card > p {
+  margin-top: var(--space-100);
+  color: var(--text-subtle);
+}
+
+html[data-theme="dark"] .story-card {
+  box-shadow: none;
+}
+
 .size-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

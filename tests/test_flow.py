@@ -589,3 +589,178 @@ def test_team_execution(tmp_path: Path):
         assert "Need the slot feed" in other
         assert "Label the aisles before the next pick test" in other
         assert "The aisle labels are hard to read" not in other
+
+
+def _column(html: str, name: str) -> str:
+    return html.split(f'data-column="{name}"', 1)[1].split("data-column=", 1)[0]
+
+
+def _status_id(html: str, name: str) -> str:
+    return _column(html, name).split('data-status="', 1)[1].split('"', 1)[0]
+
+
+def test_sprint_board_columns_and_moves(tmp_path: Path):
+    database = tmp_path / "sprint.sqlite"
+    with _client(database) as client:
+        _sign_in(client)
+        shop = _shop(client)
+        po_id = _person(client, "po1", "product_owner", team_id=shop["build_id"])
+        sm_id = _person(client, "sm1", "scrum_master", team_id=shop["build_id"])
+        member_id = _person(client, "dev1", "team_member", team_id=shop["build_id"])
+        pm_id = _person(client, "pm1", "product_manager", delivery_group_id=shop["group_id"])
+        other_group = _record_id(
+            _create(
+                client,
+                "/delivery-groups",
+                {"name": "Checkout", "value_stream_id": shop["stream_id"]},
+            )
+        )
+        other_pm = _person(client, "pm2", "product_manager", delivery_group_id=other_group)
+        cycle_id = _record_id(
+            _create(
+                client,
+                "/cycles",
+                {
+                    "name": "Warehouse cycle",
+                    "starts_on": "2026-10-05",
+                    "ends_on": "2026-11-16",
+                    "delivery_group_id": shop["group_id"],
+                },
+            )
+        )
+        iteration_id = _record_id(
+            _create(
+                client,
+                "/iterations",
+                {
+                    "name": "Picker week",
+                    "starts_on": "2026-10-05",
+                    "ends_on": "2026-10-16",
+                    "team_id": shop["build_id"],
+                    "cycle_id": cycle_id,
+                },
+            )
+        )
+        opened = client.get(f"/iterations/{iteration_id}").text
+        for name in (
+            "To do",
+            "In progress",
+            "Ready for testing",
+            "Ready for review",
+            "Deployed",
+            "Done",
+        ):
+            assert f'data-column="{name}"' in opened
+        feature_id = _feature(client, shop["initiative_id"], "Pick path", "feature")
+        first_id = _record_id(
+            _create(client, "/stories", {"name": "Show the next bin", "feature_id": feature_id, "kind": "feature"})
+        )
+        second_id = _record_id(
+            _create(client, "/stories", {"name": "Confirm the pick", "feature_id": feature_id, "kind": "feature"})
+        )
+        for story_id in (first_id, second_id):
+            client.post(
+                f"/stories/{story_id}/estimate",
+                data={"team_id": shop["build_id"], "label": "M", "points": ""},
+                follow_redirects=False,
+            )
+            client.post(
+                f"/iterations/{iteration_id}/stories",
+                data={"story_id": story_id, "person_id": po_id},
+                follow_redirects=False,
+            )
+        board = client.get(f"/iterations/{iteration_id}").text
+        todo = _column(board, "To do")
+        assert todo.index(f'data-story="{first_id}"') < todo.index(f'data-story="{second_id}"')
+        reordered = client.post(
+            f"/iterations/{iteration_id}/board",
+            data={
+                "story_id": second_id,
+                "status_id": _status_id(board, "To do"),
+                "before_story_id": first_id,
+            },
+            follow_redirects=True,
+        )
+        todo = _column(reordered.text, "To do")
+        assert todo.index(f'data-story="{second_id}"') < todo.index(f'data-story="{first_id}"')
+        moved = client.post(
+            f"/iterations/{iteration_id}/board",
+            data={"story_id": first_id, "status_id": _status_id(reordered.text, "In progress")},
+            follow_redirects=True,
+        )
+        assert f'data-story="{first_id}"' in _column(moved.text, "In progress")
+        assert f'data-story="{first_id}"' not in _column(moved.text, "To do")
+        assert "Show the next bin" in _between(moved.text, "<h2>Delivery path</h2>", "<h2>Limit exception</h2>")
+
+        refused = client.post(
+            f"/iterations/{iteration_id}/columns",
+            data={"name": "Blocked", "color": "#ae2a19", "person_id": member_id},
+            follow_redirects=True,
+        )
+        assert "That action needs the product manager, product owner, or scrum master." in refused.text
+        outsider = client.post(
+            f"/iterations/{iteration_id}/columns",
+            data={"name": "Blocked", "color": "#ae2a19", "person_id": other_pm},
+            follow_redirects=True,
+        )
+        assert "That action needs the product manager, product owner, or scrum master." in outsider.text
+        empty = client.post(
+            f"/iterations/{iteration_id}/columns",
+            data={"name": "  ", "color": "#ae2a19", "person_id": po_id},
+            follow_redirects=True,
+        )
+        assert "A name is required." in empty.text
+        duplicate = client.post(
+            f"/iterations/{iteration_id}/columns",
+            data={"name": "Done", "color": "#22a06b", "person_id": po_id},
+            follow_redirects=True,
+        )
+        assert "That column name is already on the board." in duplicate.text
+        added = client.post(
+            f"/iterations/{iteration_id}/columns",
+            data={"name": "Blocked", "color": "#ae2a19", "person_id": po_id},
+            follow_redirects=True,
+        )
+        assert 'data-column="Blocked"' in added.text
+        renamed = client.post(
+            f"/iterations/{iteration_id}/columns/{_status_id(added.text, 'In progress')}",
+            data={
+                "name": "Building",
+                "color": "#0c66e4",
+                "position": "2",
+                "person_id": sm_id,
+            },
+            follow_redirects=True,
+        )
+        assert 'data-column="Building"' in renamed.text
+        assert 'data-column="In progress"' not in renamed.text
+        assert f'data-story="{first_id}"' in _column(renamed.text, "Building")
+        released = client.post(
+            f"/iterations/{iteration_id}/columns/{_status_id(renamed.text, 'Deployed')}",
+            data={
+                "name": "Released",
+                "color": "#1d7afc",
+                "position": "5",
+                "person_id": pm_id,
+            },
+            follow_redirects=True,
+        )
+        assert 'data-column="Released"' in released.text
+        stuck = client.post(
+            f"/iterations/{iteration_id}/columns/{_status_id(released.text, 'To do')}/delete",
+            data={"person_id": po_id},
+            follow_redirects=True,
+        )
+        assert "Move the stories out of that column first." in stuck.text
+        client.post(
+            f"/iterations/{iteration_id}/board",
+            data={"story_id": second_id, "status_id": _status_id(released.text, "Done")},
+            follow_redirects=False,
+        )
+        cleared = client.post(
+            f"/iterations/{iteration_id}/columns/{_status_id(released.text, 'To do')}/delete",
+            data={"person_id": sm_id},
+            follow_redirects=True,
+        )
+        assert 'data-column="To do"' not in cleared.text
+        assert f'data-story="{second_id}"' in _column(cleared.text, "Done")

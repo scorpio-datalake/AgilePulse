@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import create_engine, event, func, inspect, select, update
+from sqlalchemy import create_engine, event, func, inspect, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
@@ -10,6 +10,7 @@ from sqlalchemy.pool import NullPool
 
 from app.models import (
     Base,
+    BoardStatus,
     CapacityNote,
     ConfidenceVote,
     CrossTeamNote,
@@ -51,6 +52,7 @@ from app.models import (
 from app.passwords import hash_password
 from app.rows import (
     BoardItem,
+    BoardStatusRow,
     CapacityRow,
     CrossNoteRow,
     CycleListRow,
@@ -94,7 +96,7 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin"
 ADMIN_DISPLAY_NAME = "Admin"
 ORG_NAME = "Local"
-SCHEMA_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8)
+SCHEMA_VERSIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 
 PolicyRow = row_model(Policy, "PolicyRow")
 
@@ -489,10 +491,41 @@ def get_team(session: Session, organization_id: int, team_id: int) -> dict | Non
     )
 
 
+DEFAULT_BOARD_STATUSES = (
+    ("To do", "#6b6e76"),
+    ("In progress", "#0c66e4"),
+    ("Ready for testing", "#8270db"),
+    ("Ready for review", "#e56910"),
+    ("Deployed", "#1d7afc"),
+    ("Done", "#22a06b"),
+)
+
+
+def _seed_board_statuses(session: Session, organization_id: int, team_id: int) -> None:
+    existing = session.scalar(
+        select(func.count()).select_from(BoardStatus).where(BoardStatus.team_id == team_id)
+    )
+    if existing:
+        return
+    for position, (name, color) in enumerate(DEFAULT_BOARD_STATUSES, start=1):
+        session.add(
+            BoardStatus(
+                organization_id=organization_id,
+                team_id=team_id,
+                name=name,
+                color=color,
+                position=position,
+            )
+        )
+    session.commit()
+
+
 def create_team(session: Session, organization_id: int, delivery_group_id: int, name: str) -> int | None:
     if get_delivery_group(session, organization_id, delivery_group_id) is None:
         return None
-    return _save(session, Team(organization_id=organization_id, delivery_group_id=delivery_group_id, name=name))
+    team_id = _save(session, Team(organization_id=organization_id, delivery_group_id=delivery_group_id, name=name))
+    _seed_board_statuses(session, organization_id, team_id)
+    return team_id
 
 
 def rename_team(session: Session, organization_id: int, team_id: int, name: str) -> bool:
@@ -1018,6 +1051,19 @@ def update_story(session: Session, organization_id: int, story_id: int, name: st
         update(Story)
         .where(Story.id == story_id, Story.organization_id == organization_id)
         .values(name=name, kind=kind),
+    )
+
+
+def set_story_feature(session: Session, organization_id: int, story_id: int, feature_id: int) -> bool:
+    if get_story(session, organization_id, story_id) is None:
+        return False
+    if get_feature(session, organization_id, feature_id) is None:
+        return False
+    return _changed(
+        session,
+        update(Story)
+        .where(Story.id == story_id, Story.organization_id == organization_id)
+        .values(feature_id=feature_id),
     )
 
 
@@ -1718,12 +1764,189 @@ def list_iteration_board(session: Session, iteration_id: int) -> list[dict]:
             Story.estimate_value,
             IterationStory.position,
             IterationStory.accepted,
+            IterationStory.board_status_id,
+            IterationStory.board_rank,
         )
         .join(IterationStory, IterationStory.story_id == Story.id)
         .where(IterationStory.iteration_id == iteration_id)
-        .order_by(IterationStory.position, Story.id)
+        .order_by(IterationStory.board_rank, IterationStory.position, Story.id)
     ).mappings()
     return dump_maps(rows, IterationBoardRow)
+
+
+def place_open_cards(session: Session, iteration_id: int, status_id: int) -> None:
+    session.execute(
+        update(IterationStory)
+        .where(IterationStory.iteration_id == iteration_id, IterationStory.board_status_id.is_(None))
+        .values(board_status_id=status_id)
+    )
+    session.commit()
+
+
+def list_board_statuses(session: Session, organization_id: int, team_id: int) -> list[dict]:
+    _seed_board_statuses(session, organization_id, team_id)
+    rows = session.scalars(
+        select(BoardStatus)
+        .where(BoardStatus.team_id == team_id, BoardStatus.organization_id == organization_id)
+        .order_by(BoardStatus.position, BoardStatus.id)
+    ).all()
+    return dump_all(rows, BoardStatusRow)
+
+
+def add_board_status(
+    session: Session, organization_id: int, team_id: int, name: str, color: str
+) -> str | None:
+    if get_team(session, organization_id, team_id) is None:
+        return "missing"
+    taken = session.scalar(
+        select(BoardStatus.id).where(BoardStatus.team_id == team_id, BoardStatus.name == name)
+    )
+    if taken is not None:
+        return "duplicate"
+    position = session.scalar(
+        select(func.coalesce(func.max(BoardStatus.position), 0) + 1).where(BoardStatus.team_id == team_id)
+    )
+    _save(
+        session,
+        BoardStatus(
+            organization_id=organization_id,
+            team_id=team_id,
+            name=name,
+            color=color,
+            position=int(position or 1),
+        ),
+    )
+    return None
+
+
+def update_board_status(
+    session: Session,
+    organization_id: int,
+    team_id: int,
+    status_id: int,
+    name: str,
+    color: str,
+    position: int,
+) -> str | None:
+    status = session.scalar(
+        select(BoardStatus).where(
+            BoardStatus.id == status_id,
+            BoardStatus.team_id == team_id,
+            BoardStatus.organization_id == organization_id,
+        )
+    )
+    if status is None:
+        return "missing"
+    taken = session.scalar(
+        select(BoardStatus.id).where(
+            BoardStatus.team_id == team_id,
+            BoardStatus.name == name,
+            BoardStatus.id != status_id,
+        )
+    )
+    if taken is not None:
+        return "duplicate"
+    rows = list(
+        session.scalars(
+            select(BoardStatus)
+            .where(BoardStatus.team_id == team_id)
+            .order_by(BoardStatus.position, BoardStatus.id)
+        ).all()
+    )
+    rows = [row for row in rows if row.id != status_id]
+    index = min(max(position, 1), len(rows) + 1) - 1
+    rows.insert(index, status)
+    status.name = name
+    status.color = color
+    for index, row in enumerate(rows, start=1):
+        row.position = index
+    session.commit()
+    return None
+
+
+def delete_board_status(session: Session, organization_id: int, team_id: int, status_id: int) -> str | None:
+    status = session.scalar(
+        select(BoardStatus).where(
+            BoardStatus.id == status_id,
+            BoardStatus.team_id == team_id,
+            BoardStatus.organization_id == organization_id,
+        )
+    )
+    if status is None:
+        return "missing"
+    count = session.scalar(
+        select(func.count()).select_from(BoardStatus).where(BoardStatus.team_id == team_id)
+    )
+    if count is not None and count <= 1:
+        return "last"
+    used = session.scalar(
+        select(func.count()).select_from(IterationStory).where(IterationStory.board_status_id == status_id)
+    )
+    if used:
+        return "in_use"
+    session.delete(status)
+    session.flush()
+    rows = session.scalars(
+        select(BoardStatus).where(BoardStatus.team_id == team_id).order_by(BoardStatus.position, BoardStatus.id)
+    ).all()
+    for index, row in enumerate(rows, start=1):
+        row.position = index
+    session.commit()
+    return None
+
+
+def move_board_card(
+    session: Session,
+    iteration_id: int,
+    story_id: int,
+    status_id: int,
+    before_story_id: int | None,
+) -> bool:
+    iteration = session.get(Iteration, iteration_id)
+    status = session.get(BoardStatus, status_id)
+    if iteration is None or status is None or status.team_id != iteration.team_id:
+        return False
+    card = session.scalar(
+        select(IterationStory).where(
+            IterationStory.iteration_id == iteration_id,
+            IterationStory.story_id == story_id,
+        )
+    )
+    if card is None:
+        return False
+    if before_story_id == story_id:
+        return True
+    first = session.scalar(
+        select(BoardStatus)
+        .where(BoardStatus.team_id == iteration.team_id)
+        .order_by(BoardStatus.position, BoardStatus.id)
+    )
+    in_column = [IterationStory.board_status_id == status_id]
+    if first is not None and status.id == first.id:
+        in_column.append(IterationStory.board_status_id.is_(None))
+    target = list(
+        session.scalars(
+            select(IterationStory)
+            .where(
+                IterationStory.iteration_id == iteration_id,
+                IterationStory.story_id != story_id,
+                or_(*in_column),
+            )
+            .order_by(IterationStory.board_rank, IterationStory.position, IterationStory.id)
+        ).all()
+    )
+    insert_at = len(target)
+    if before_story_id is not None:
+        ids = [row.story_id for row in target]
+        if before_story_id not in ids:
+            return False
+        insert_at = ids.index(before_story_id)
+    target.insert(insert_at, card)
+    for index, row in enumerate(target, start=1):
+        row.board_status_id = status_id
+        row.board_rank = index
+    session.commit()
+    return True
 
 
 def list_stories_not_on_iteration(session: Session, team_id: int) -> list[dict]:

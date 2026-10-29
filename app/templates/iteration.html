@@ -61,7 +61,124 @@
     </label>
     <button type="submit">Add to iteration</button>
   </form>
-  <h2>Board</h2>
+  <h2>Sprint board</h2>
+  <p class="sprint-note">Drag a story into a column, or choose a column and move it. The same columns are used on every iteration for this team.</p>
+  <div
+    class="sprint-board"
+    x-data="sprintBoard()"
+    @dragend="over = null"
+  >
+    {% for status in statuses %}
+      <section
+        class="sprint-column"
+        data-column="{{ status.name }}"
+        data-status="{{ status.id }}"
+        :class="{ 'is-drop': over === {{ status.id }} }"
+        @dragover.prevent="over = {{ status.id }}"
+        @drop.prevent="drop($event, {{ status.id }}, null)"
+      >
+        <header style="border-bottom-color: {{ status.color }}">
+          <h3>{{ status.name }}</h3>
+          <span class="count">{{ sprint[status.id]|length }}</span>
+        </header>
+        <div class="sprint-cards">
+          {% for story in sprint[status.id] %}
+            <article
+              class="story-card"
+              data-story="{{ story.id }}"
+              draggable="true"
+              @dragstart="start($event, {{ story.id }})"
+              @dragover.prevent
+              @drop.stop.prevent="drop($event, {{ status.id }}, {{ story.id }})"
+            >
+              <div class="story-card-title">
+                <a href="/stories/{{ story.id }}">{{ story.name }}</a>
+                {% if story.estimate_value is not none %}
+                  <span class="points" title="Estimate">{{ story.estimate_value }}</span>
+                {% endif %}
+              </div>
+              <p class="story-card-meta">
+                <span>{{ story.stage }}</span>
+                {% if story.accepted %}<span>Accepted</span>{% endif %}
+              </p>
+              <form method="post" action="/iterations/{{ iteration.id }}/board">
+                <input type="hidden" name="story_id" value="{{ story.id }}">
+                <label>Column
+                  <select name="status_id">
+                    {% for choice in statuses %}
+                      <option value="{{ choice.id }}"{% if choice.id == status.id %} selected{% endif %}>{{ choice.name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <button type="submit">Move</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+  <form id="sprint-move" method="post" action="/iterations/{{ iteration.id }}/board" hidden>
+    <input name="story_id">
+    <input name="status_id">
+    <input name="before_story_id">
+  </form>
+  <script>
+    function sprintBoard() {
+      return {
+        over: null,
+        start(event, storyId) {
+          event.dataTransfer.setData("text/plain", String(storyId));
+          event.dataTransfer.effectAllowed = "move";
+        },
+        drop(event, statusId, beforeId) {
+          var storyId = event.dataTransfer.getData("text/plain");
+          if (!storyId || String(beforeId) === String(storyId)) {
+            this.over = null;
+            return;
+          }
+          var form = document.getElementById("sprint-move");
+          form.querySelector("[name=story_id]").value = storyId;
+          form.querySelector("[name=status_id]").value = statusId;
+          form.querySelector("[name=before_story_id]").value = beforeId || "";
+          form.submit();
+        }
+      };
+    }
+  </script>
+  <section class="column-editor">
+    <h2>Columns</h2>
+    <p>A product manager for this delivery group, or the product owner or scrum master on this team, can rename, reorder, add, and remove columns.</p>
+    {% for status in statuses %}
+      <form method="post" action="/iterations/{{ iteration.id }}/columns/{{ status.id }}">
+        <label>Name <input name="name" value="{{ status.name }}"></label>
+        <label>Color <input name="color" type="color" value="{{ status.color }}"></label>
+        <label>Order <input name="position" value="{{ status.position }}"></label>
+        <label>Editor
+          <select name="person_id">
+            {% for person in people %}
+              <option value="{{ person.id }}">{{ person.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button type="submit">Save column</button>
+        <button class="danger" type="submit" formaction="/iterations/{{ iteration.id }}/columns/{{ status.id }}/delete">Remove</button>
+      </form>
+    {% endfor %}
+    <form method="post" action="/iterations/{{ iteration.id }}/columns">
+      <label>Name <input name="name" placeholder="Blocked"></label>
+      <label>Color <input name="color" type="color" value="#ae2a19"></label>
+      <label>Editor
+        <select name="person_id">
+          {% for person in people %}
+            <option value="{{ person.id }}">{{ person.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Add column</button>
+    </form>
+  </section>
+  <h2>Delivery path</h2>
   {% for stage in stages %}
     <h3>{{ stage }}</h3>
     <ul>

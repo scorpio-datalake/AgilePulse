@@ -173,6 +173,56 @@ Open **Build crew**, **Planning**.
 
 If you also have the checkout group, open **Lane redesign**, **Planning**, **Open cycle** **Checkout cycle** from 90 days ago through 40 days from today, then on **Checkout crew** open **Lane week** from yesterday through 10 days from today.
 
+### Sprint columns, a backlog, and later sprints
+
+The sample script does not create these. You add them on the sprint page. No one seat can do every step. Sign in as `admin` / `admin` so you can open the pages, and choose the person named below in each form.
+
+| Step | Person you select | Seat |
+| --- | --- | --- |
+| Add a story, estimate it, and open an iteration | Anyone who can edit. Admin can. | No seat on the team |
+| Add a story to a sprint | Owen Park | Product owner on that team |
+| Add, rename, reorder, or remove a column | Nia Chen, Owen Park, or Sam Reed | Product manager for the delivery group, or product owner or scrum master on that team |
+| Drag a story into a column, or use **Move** | Anyone who can edit. Admin can. | No seat |
+
+A developer such as Dev can move cards on a sprint he can open. He cannot add a story to the sprint, and he cannot change the columns, unless the form is signed as Owen, Nia, or Sam. One person cannot hold product manager, product owner, and scrum master at the same time.
+
+Open **Build crew**, **Planning**, **Sprint 2**. That sprint includes today. Under **Columns**, change the six starting columns to these five. For each save or remove, set **Editor** to Owen Park. Remove a column only after its stories have been moved out.
+
+| Order | Name | Color |
+| --- | --- | --- |
+| 1 | Ready | `#6b6e76` |
+| 2 | Building | `#0c66e4` |
+| 3 | Review | `#e56910` |
+| 4 | Testing | `#8270db` |
+| 5 | Done | `#22a06b` |
+
+**Add column** uses the same editor. **Save column** keeps a rename. The same five columns then appear on every Build crew sprint, including ones that have not started.
+
+On **Pick path**, **Add story** for each name below, then on the story **Estimate** for **Build crew**, T-shirt **M**, **Save estimate**. Back on Sprint 2, **Add to iteration** and choose Owen Park as the product owner. Drag the card into the column, or choose the column and **Move**.
+
+| Story | Column on Sprint 2 |
+| --- | --- |
+| Show the next bin | Ready |
+| Scan the bin barcode | Ready |
+| Confirm the pick | Building |
+| Skip a damaged slot | Building |
+| Warn when the aisle is blocked | Review |
+| Show the picker their pace | Testing |
+| Mark the pick complete | Done |
+
+Each column should have at least one card. The card shows the story name, the estimate, and the delivery-path stage. It does not show a person. The sprint board does not store who the story is assigned to.
+
+Leave these three estimated for Build crew and do not add them to a sprint: **Reprint a torn label**, **Count empty slots at end of shift**, and **Flag a short pick**. There is no backlog page. They stay in the **Story** menu under **Add to iteration** until a product owner adds one.
+
+Later sprints are more iterations inside the same cycle. On **Build crew**, **Planning**, **Open iteration** on **Warehouse pick optimization**:
+
+| Iteration | Start | End | Stories, left in Ready |
+| --- | --- | --- | --- |
+| Sprint 3 | The day after Sprint 2 ends | Eight days later | Highlight the next aisle, Confirm the tote is closed |
+| Sprint 4 | The day after Sprint 3 ends | The day the cycle ends | Log a missed scan, Show yesterday's miles |
+
+Add those four stories the same way, estimate them for Build crew, and add them to the matching sprint as Owen Park. A sprint that has not started is only another row on **Planning**. The home page for a developer still calls the sprint that contains today the current sprint.
+
 On the delivery group **Board** tab you can save a policy: from **Define**, into **Build**, effect **Warning**. That does not add a card. It only warns when something moves between those stages.
 
 ### 6. Coordination notes
